@@ -1,6 +1,6 @@
 {
   "name": "youtube-url-copy-edge-extension",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "private": true,
   "description": "可按仅链接或标题加链接格式分批复制 YouTube 视频的 Edge 扩展",
   "scripts": {

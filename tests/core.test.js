@@ -192,12 +192,65 @@ test("只有匹配的待复制批次才能推进状态并去重", () => {
   assert.equal(committed.status, "copied");
   assert.equal(committed.batchNumber, 2);
   assert.deepEqual(committed.deliveredIds, ["_GPSfzoVvC4", "_SpyH8wTA-4"]);
+  assert.deepEqual(committed.skippedIds, []);
   assert.deepEqual(committed.titlesById, {
     "_GPSfzoVvC4": "旧标题",
     "_SpyH8wTA-4": "新标题"
   });
   assert.equal(committed.pendingBatch, null);
   assert.equal(committed.lastBatch.batchId, "batch-2");
+});
+
+test("复制前选择只提交勾选项并把取消项记为跳过", () => {
+  const state = {
+    ...Core.createDefaultSourceState(),
+    deliveredIds: ["_GPSfzoVvC4"],
+    pendingBatch: {
+      batchId: "select-batch",
+      batchNumber: 2,
+      videoIds: ["_SpyH8wTA-4", "2byPP_9F0-Q", "35SPFdc1eXY"],
+      urls: [
+        "https://www.youtube.com/watch?v=_SpyH8wTA-4",
+        "https://www.youtube.com/watch?v=2byPP_9F0-Q",
+        "https://www.youtube.com/watch?v=35SPFdc1eXY"
+      ],
+      titles: ["保留 1", "取消", "保留 2"],
+      selectedVideoIds: ["_SpyH8wTA-4", "35SPFdc1eXY"],
+      awaitingSelection: true,
+      exhausted: false
+    }
+  };
+  const committed = Core.commitPendingBatch(state, "select-batch");
+  assert.deepEqual(committed.deliveredIds, [
+    "_GPSfzoVvC4",
+    "_SpyH8wTA-4",
+    "35SPFdc1eXY"
+  ]);
+  assert.deepEqual(committed.skippedIds, ["2byPP_9F0-Q"]);
+  assert.deepEqual(committed.lastBatch.videoIds, ["_SpyH8wTA-4", "35SPFdc1eXY"]);
+  assert.deepEqual(committed.lastBatch.titles, ["保留 1", "保留 2"]);
+  assert.deepEqual(
+    { start: committed.lastBatch.rangeStart, end: committed.lastBatch.rangeEnd },
+    { start: 2, end: 3 }
+  );
+  assert.equal(committed.lastBatch.originalCount, 3);
+  assert.equal(committed.lastBatch.awaitingSelection, undefined);
+});
+
+test("复制前选择为空时不推进批次", () => {
+  const state = {
+    ...Core.createDefaultSourceState(),
+    pendingBatch: {
+      batchId: "empty-selection",
+      batchNumber: 1,
+      videoIds: ["_GPSfzoVvC4"],
+      urls: ["https://www.youtube.com/watch?v=_GPSfzoVvC4"],
+      titles: ["视频"],
+      selectedVideoIds: [],
+      awaitingSelection: true
+    }
+  };
+  assert.equal(Core.commitPendingBatch(state, "empty-selection"), state);
 });
 
 test("新来源默认包含可恢复的分页状态", () => {
@@ -207,6 +260,7 @@ test("新来源默认包含可恢复的分页状态", () => {
     queuedItems: [],
     sourceExhausted: false
   });
+  assert.deepEqual(state.skippedIds, []);
 });
 
 test("批次范围兼容新批次字段和旧版本批次", () => {

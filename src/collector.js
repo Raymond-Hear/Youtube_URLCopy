@@ -15,6 +15,7 @@
   let currentUrl = location.href;
   let batchSize = Core.DEFAULT_BATCH_SIZE;
   let copyFormat = Core.DEFAULT_COPY_FORMAT;
+  let selectionMode = false;
   let busy = false;
   let panel = null;
   let copyButton = null;
@@ -32,6 +33,12 @@
   let previewBox = null;
   let exportButton = null;
   let copyFormatSelect = null;
+  let selectionModeInput = null;
+  let selectionPanel = null;
+  let selectionList = null;
+  let selectionCountLabel = null;
+  let selectAllButton = null;
+  let clearSelectionButton = null;
 
   function defaultStore() {
     return { sources: {} };
@@ -43,6 +50,8 @@
     return {
       ...defaults,
       ...state,
+      deliveredIds: Array.isArray(state.deliveredIds) ? state.deliveredIds : [],
+      skippedIds: Array.isArray(state.skippedIds) ? state.skippedIds : [],
       titlesById: {
         ...defaults.titlesById,
         ...(state.titlesById || {})
@@ -80,7 +89,8 @@
     return {
       collapsed: Boolean(state.collapsed),
       batchSize: Core.normalizeBatchSize(state.batchSize),
-      copyFormat: Core.normalizeCopyFormat(state.copyFormat)
+      copyFormat: Core.normalizeCopyFormat(state.copyFormat),
+      selectionMode: Boolean(state.selectionMode)
     };
   }
 
@@ -90,7 +100,8 @@
       ...current,
       ...patch,
       batchSize: Core.normalizeBatchSize(patch.batchSize ?? current.batchSize),
-      copyFormat: Core.normalizeCopyFormat(patch.copyFormat ?? current.copyFormat)
+      copyFormat: Core.normalizeCopyFormat(patch.copyFormat ?? current.copyFormat),
+      selectionMode: Boolean(patch.selectionMode ?? current.selectionMode)
     };
     await chrome.storage.local.set({ [UI_STATE_KEY]: next });
     return next;
@@ -144,6 +155,19 @@
     }
   }
 
+  async function setSelectionMode(enabled, persist = true) {
+    if (busy) {
+      return;
+    }
+    selectionMode = Boolean(enabled);
+    if (selectionModeInput) {
+      selectionModeInput.checked = selectionMode;
+    }
+    if (persist) {
+      await saveUiState({ selectionMode });
+    }
+  }
+
   function bindPanelElements() {
     copyButton = panel.querySelector(".ytlc-copy");
     countLabel = panel.querySelector(".ytlc-count");
@@ -160,6 +184,12 @@
     previewBox = panel.querySelector(".ytlc-preview");
     exportButton = panel.querySelector(".ytlc-export");
     copyFormatSelect = panel.querySelector(".ytlc-copy-format");
+    selectionModeInput = panel.querySelector(".ytlc-selection-mode");
+    selectionPanel = panel.querySelector(".ytlc-selection");
+    selectionList = panel.querySelector(".ytlc-selection-list");
+    selectionCountLabel = panel.querySelector(".ytlc-selection-count");
+    selectAllButton = panel.querySelector(".ytlc-select-all");
+    clearSelectionButton = panel.querySelector(".ytlc-select-none");
   }
 
   function createPanel() {
@@ -202,12 +232,26 @@
               <option value="50" selected>50 条</option>
             </select>
           </label>
+          <label class="ytlc-option-row ytlc-selection-option" for="ytlc-selection-mode">
+            <span>复制前选择</span>
+            <input id="ytlc-selection-mode" class="ytlc-selection-mode" type="checkbox" role="switch">
+          </label>
         </div>
         <button class="ytlc-copy" type="button">
           <span class="ytlc-button-text">复制第 1 批：1–50</span>
           <span class="ytlc-count">50</span>
         </button>
         <p class="ytlc-status" role="status">读取当前页面，无需切换标签</p>
+        <div class="ytlc-selection" hidden>
+          <div class="ytlc-selection-head">
+            <span class="ytlc-selection-count">已选 0/0</span>
+            <div>
+              <button class="ytlc-select-all" type="button">全选</button>
+              <button class="ytlc-select-none" type="button">清空</button>
+            </div>
+          </div>
+          <div class="ytlc-selection-list" role="list" aria-label="选择要复制的视频"></div>
+        </div>
         <div class="ytlc-secondary">
           <button class="ytlc-recopy" type="button" hidden>重新复制上一批</button>
           <button class="ytlc-preview-toggle" type="button" aria-expanded="false" hidden>查看上一批</button>
@@ -232,6 +276,11 @@
     copyFormatSelect.addEventListener("change", () =>
       void setCopyFormat(copyFormatSelect.value)
     );
+    selectionModeInput.addEventListener("change", () =>
+      void setSelectionMode(selectionModeInput.checked)
+    );
+    selectAllButton.addEventListener("click", () => void selectPendingItems(true));
+    clearSelectionButton.addEventListener("click", () => void selectPendingItems(false));
     collapseButton.addEventListener("click", () =>
       void setCollapsed(panel.dataset.collapsed !== "true")
     );
@@ -369,6 +418,90 @@
     return items;
   }
 
+  function selectedIdsForBatch(batch) {
+    return Array.isArray(batch?.selectedVideoIds)
+      ? batch.videoIds.filter((videoId) => batch.selectedVideoIds.includes(videoId))
+      : [...(batch?.videoIds || [])];
+  }
+
+  async function updatePendingSelection(selectedVideoIds) {
+    if (busy || !currentSource) {
+      return;
+    }
+    const sourceKey = currentSource.sourceKey;
+    const state = await readSourceState(sourceKey);
+    const batch = state.pendingBatch;
+    if (!batch?.awaitingSelection) {
+      return;
+    }
+    const selectedSet = new Set(selectedVideoIds);
+    const nextState = await saveSourceState(sourceKey, {
+      ...state,
+      pendingBatch: {
+        ...batch,
+        selectedVideoIds: batch.videoIds.filter((videoId) => selectedSet.has(videoId))
+      }
+    });
+    if (currentSource?.sourceKey === sourceKey) {
+      await renderState(nextState);
+    }
+  }
+
+  async function selectPendingItems(selectAll) {
+    if (!currentSource) {
+      return;
+    }
+    const state = await readSourceState(currentSource.sourceKey);
+    const batch = state.pendingBatch;
+    if (!batch?.awaitingSelection) {
+      return;
+    }
+    await updatePendingSelection(selectAll ? batch.videoIds : []);
+  }
+
+  function renderPendingSelection(batch) {
+    if (!batch?.awaitingSelection) {
+      selectionPanel.hidden = true;
+      selectionList.replaceChildren();
+      return 0;
+    }
+
+    const selectedIds = selectedIdsForBatch(batch);
+    const selectedSet = new Set(selectedIds);
+    selectionPanel.hidden = false;
+    selectionList.replaceChildren();
+    batch.videoIds.forEach((videoId, index) => {
+      const row = document.createElement("label");
+      row.className = "ytlc-selection-item";
+      row.setAttribute("role", "listitem");
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = selectedSet.has(videoId);
+      checkbox.dataset.videoId = videoId;
+      checkbox.addEventListener("change", () => {
+        const nextSelection = Array.from(
+          selectionList.querySelectorAll("input[type='checkbox']:checked")
+        ).map((input) => input.dataset.videoId);
+        void updatePendingSelection(nextSelection);
+      });
+
+      const text = document.createElement("span");
+      const title = Core.normalizeVideoTitle(batch.titles?.[index]);
+      text.className = "ytlc-selection-text";
+      text.textContent = `${index + 1}. ${title || videoId}`;
+      text.title = batch.urls?.[index] || Core.normalizeWatchUrl(videoId);
+
+      row.append(checkbox, text);
+      selectionList.append(row);
+    });
+
+    selectionCountLabel.textContent = `已选 ${selectedIds.length}/${batch.videoIds.length}`;
+    selectAllButton.disabled = busy || selectedIds.length === batch.videoIds.length;
+    clearSelectionButton.disabled = busy || selectedIds.length === 0;
+    return selectedIds.length;
+  }
+
   async function renderState(rawState) {
     if (!panel || !currentSource) {
       return;
@@ -377,21 +510,26 @@
     setTheme();
     panel.hidden = false;
     const deliveredCount = state.deliveredIds.length;
+    const skippedCount = state.skippedIds.length;
     const nextStart = deliveredCount + 1;
     const nextEnd = deliveredCount + batchSize;
     const lastRange = Core.getBatchRange(state.lastBatch, deliveredCount);
     const pendingRange = Core.getBatchRange(state.pendingBatch, deliveredCount, true);
     const visibleFallbackCount = state.status === "error"
-      ? collectVisibleItems(state.deliveredIds).length
+      ? collectVisibleItems([...state.deliveredIds, ...state.skippedIds]).length
       : 0;
+    const pendingSelectionCount = renderPendingSelection(state.pendingBatch);
 
-    copyButton.disabled = busy || state.exhausted;
+    copyButton.disabled = busy ||
+      (state.exhausted && !state.pendingBatch) ||
+      (Boolean(state.pendingBatch?.awaitingSelection) && pendingSelectionCount === 0);
     resetButton.disabled = busy;
     recopyButton.disabled = busy;
     previewButton.disabled = busy;
     exportButton.disabled = busy || deliveredCount === 0;
     batchSizeSelect.disabled = busy;
     copyFormatSelect.disabled = busy;
+    selectionModeInput.disabled = busy;
     fallbackButton.disabled = busy || visibleFallbackCount === 0;
     recopyButton.hidden = !state.lastBatch?.urls?.length;
     previewButton.hidden = !state.lastBatch?.urls?.length;
@@ -401,6 +539,7 @@
     brandBatchSize.textContent = String(batchSize);
     batchSizeSelect.value = String(batchSize);
     copyFormatSelect.value = copyFormat;
+    selectionModeInput.checked = selectionMode;
     if (state.lastBatch?.urls?.length) {
       previewBox.textContent = Core.formatBatch(state.lastBatch, copyFormat);
     } else {
@@ -417,15 +556,29 @@
       return;
     }
     if (state.pendingBatch?.urls?.length) {
-      setButtonLabel(
-        `重试第 ${state.pendingBatch.batchNumber} 批：${pendingRange.start}–${pendingRange.end}`,
-        String(state.pendingBatch.urls.length)
-      );
-      setWidgetStatus("本批尚未写入剪贴板，点击重试", "error");
-      setCompactSummary(`待重试 ${state.pendingBatch.urls.length} 条`);
+      if (state.pendingBatch.awaitingSelection) {
+        setButtonLabel(`复制已选 ${pendingSelectionCount} 条`, String(pendingSelectionCount));
+        setWidgetStatus(
+          pendingSelectionCount
+            ? `本批共 ${state.pendingBatch.urls.length} 条，取消不需要的视频后确认复制`
+            : "请至少选择 1 条视频",
+          pendingSelectionCount ? "normal" : "error"
+        );
+        setCompactSummary(`待确认 ${pendingSelectionCount} 条`);
+      } else {
+        setButtonLabel(
+          `重试第 ${state.pendingBatch.batchNumber} 批：${pendingRange.start}–${pendingRange.end}`,
+          String(state.pendingBatch.urls.length)
+        );
+        setWidgetStatus("本批尚未写入剪贴板，点击重试", "error");
+        setCompactSummary(`待重试 ${state.pendingBatch.urls.length} 条`);
+      }
     } else if (state.exhausted) {
       setButtonLabel("全部链接已复制", "✓");
-      setWidgetStatus(`全部完成 · 共 ${deliveredCount} 条`, "success");
+      setWidgetStatus(
+        `全部完成 · 复制 ${deliveredCount} 条${skippedCount ? ` · 跳过 ${skippedCount} 条` : ""}`,
+        "success"
+      );
       setCompactSummary(`已完成 ${deliveredCount} 条`);
     } else if (state.status === "error") {
       setButtonLabel("重新尝试完整读取", "↻");
@@ -515,7 +668,7 @@
       queuedItems: pagination.queuedItems,
       startContinuation: pagination.cursor,
       sourceExhausted: pagination.sourceExhausted,
-      excludedIds: state.deliveredIds,
+      excludedIds: [...state.deliveredIds, ...state.skippedIds],
       targetCount,
       maxRequests: MAX_CONTINUATION_REQUESTS,
       onProgress,
@@ -573,12 +726,15 @@
     if (!batch?.urls?.length) {
       return state;
     }
-    await copyText(Core.formatBatch(batch, copyFormat));
     const committed = Core.commitPendingBatch(state, batch.batchId);
+    if (committed === state || !committed.lastBatch?.urls?.length) {
+      throw new Error("请至少选择 1 条视频后再复制。");
+    }
+    await copyText(Core.formatBatch(committed.lastBatch, copyFormat));
     await saveSourceState(source.sourceKey, committed);
-    const range = Core.getBatchRange(batch, committed.deliveredIds.length);
+    const range = Core.getBatchRange(committed.lastBatch, committed.deliveredIds.length);
     showToast(
-      `已复制第 ${batch.batchNumber} 批：${range.start}–${range.end}，共 ${batch.urls.length} 条`,
+      `已复制第 ${batch.batchNumber} 批：${range.start}–${range.end}，共 ${committed.lastBatch.urls.length} 条`,
       "success"
     );
     return committed;
@@ -639,7 +795,7 @@
       return;
     }
     let state = await readSourceState(currentSource.sourceKey);
-    const items = collectVisibleItems(state.deliveredIds);
+    const items = collectVisibleItems([...state.deliveredIds, ...state.skippedIds]);
     if (!items.length) {
       showToast("当前页面没有尚未复制的可见视频链接");
       return;
@@ -654,6 +810,10 @@
       videoIds: items.map((item) => item.videoId),
       urls: items.map((item) => item.url),
       titles: items.map((item) => item.title),
+      ...(selectionMode ? {
+        awaitingSelection: true,
+        selectedVideoIds: items.map((item) => item.videoId)
+      } : {}),
       exhausted: false,
       fallback: true,
       createdAt: Date.now()
@@ -664,6 +824,12 @@
       error: null,
       pendingBatch: batch
     });
+    if (selectionMode) {
+      busy = false;
+      await renderState(state);
+      showToast(`已找到 ${items.length} 条，请确认本批选择`, "success");
+      return;
+    }
     try {
       state = await copyAndCommit(currentSource, state);
     } catch (error) {
@@ -698,6 +864,7 @@
     exportButton.disabled = true;
     batchSizeSelect.disabled = true;
     copyFormatSelect.disabled = true;
+    selectionModeInput.disabled = true;
     fallbackButton.disabled = true;
     setButtonLabel("正在读取视频", `0/${requestedBatchSize}`);
     setWidgetStatus("正在读取页面数据，不会滚动或切换页面");
@@ -754,6 +921,10 @@
         videoIds: result.items.map((item) => item.videoId),
         urls: result.items.map((item) => item.url),
         titles: result.items.map((item) => item.title),
+        ...(selectionMode ? {
+          awaitingSelection: true,
+          selectedVideoIds: result.items.map((item) => item.videoId)
+        } : {}),
         exhausted: result.exhausted,
         createdAt: Date.now()
       };
@@ -765,6 +936,12 @@
         exhausted: result.exhausted,
         progress: batch.urls.length
       });
+      if (selectionMode) {
+        busy = false;
+        await renderState(state);
+        showToast(`已找到 ${batch.urls.length} 条，请确认本批选择`, "success");
+        return;
+      }
       state = await copyAndCommit(source, state);
       busy = false;
       await renderState(state);
@@ -806,6 +983,7 @@
     const uiState = await readUiState();
     await setBatchSize(uiState.batchSize, false);
     await setCopyFormat(uiState.copyFormat, false);
+    await setSelectionMode(uiState.selectionMode, false);
     await setCollapsed(uiState.collapsed, false);
     panel.hidden = false;
     const state = await readSourceState(currentSource.sourceKey);

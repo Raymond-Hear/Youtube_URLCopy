@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_URL = (ROOT / "tests" / "ui-fixture.html").as_uri()
 SCREENSHOT = ROOT / ".artifacts" / "phase-2-preview.png"
 RUNTIME_SCREENSHOT = ROOT / ".artifacts" / "phase-2-runtime.png"
+SELECTION_SCREENSHOT = ROOT / ".artifacts" / "phase-2-selection.png"
 COLLAPSED_SCREENSHOT = ROOT / ".artifacts" / "phase-2-collapsed.png"
 EDGE = Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
 
@@ -49,6 +50,14 @@ def check_static_fixture(browser, console_errors) -> None:
     assert page.locator(".ytlc-preview-toggle").get_attribute("aria-expanded") == "true"
     page.screenshot(path=str(SCREENSHOT), full_page=True)
 
+    page.goto(f"{FIXTURE_URL}?state=selection")
+    page.wait_for_load_state("networkidle")
+    selection = page.locator(".ytlc-selection")
+    assert selection.is_visible()
+    assert page.locator(".ytlc-selection-count").text_content() == "已选 2/3"
+    assert page.locator(".ytlc-selection-item input:checked").count() == 2
+    assert page.locator(".ytlc-button-text").text_content() == "复制已选 2 条"
+
     page.goto(f"{FIXTURE_URL}?state=collapsed")
     page.wait_for_load_state("networkidle")
     assert page.locator(".ytlc-body").is_hidden()
@@ -61,11 +70,14 @@ def check_collector_runtime(browser, console_errors) -> None:
     watch_console_errors(page, console_errors)
     page.add_init_script(
         script="""
-        globalThis.__ytlcStorage = {
+        globalThis.__ytlcStorage = JSON.parse(
+          localStorage.getItem("__ytlcStorage") || "null"
+        ) || {
           youtubeLinkCopyUiStateV1: {
             collapsed: false,
             batchSize: 25,
-            copyFormat: "title-link"
+            copyFormat: "title-link",
+            selectionMode: false
           },
           youtubeLinkCopyPageStateV2: {
             sources: {
@@ -73,6 +85,7 @@ def check_collector_runtime(browser, console_errors) -> None:
                 status: "copied",
                 batchNumber: 1,
                 deliveredIds: ["_GPSfzoVvC4", "_SpyH8wTA-4"],
+                skippedIds: [],
                 titlesById: {
                   "_GPSfzoVvC4": "普通视频 1",
                   "_SpyH8wTA-4": "普通视频 2"
@@ -120,6 +133,10 @@ def check_collector_runtime(browser, console_errors) -> None:
               },
               async set(values) {
                 Object.assign(globalThis.__ytlcStorage, values);
+                localStorage.setItem(
+                  "__ytlcStorage",
+                  JSON.stringify(globalThis.__ytlcStorage)
+                );
               }
             }
           },
@@ -129,9 +146,21 @@ def check_collector_runtime(browser, console_errors) -> None:
         };
         """
     )
-    page.route(
-        "**/*",
-        lambda route: route.fulfill(
+    def handle_route(route) -> None:
+        if route.request.url.endswith("/@localtest/videos"):
+            route.fulfill(
+                status=200,
+                headers={"Content-Type": "text/html; charset=utf-8"},
+                body="""<!doctype html><html><body><script>
+                  var ytInitialData = {"contents":{"items":[
+                    {"videoRenderer":{"videoId":"35SPFdc1eXY","title":{"simpleText":"候选视频 1"}}},
+                    {"videoRenderer":{"videoId":"3y-WiiUaqb4","title":{"simpleText":"不需要的视频"}}},
+                    {"videoRenderer":{"videoId":"7I50PECz7SU","title":{"simpleText":"候选视频 3"}}}
+                  ]}};
+                </script></body></html>""",
+            )
+            return
+        route.fulfill(
             status=200,
             headers={"Content-Type": "text/html; charset=utf-8"},
             body="""<!doctype html><html><body>
@@ -140,8 +169,9 @@ def check_collector_runtime(browser, console_errors) -> None:
                 <h3><a id="video-title" title="当前可见视频" href="/watch?v=2byPP_9F0-Q">当前可见视频</a></h3>
               </ytd-video-renderer>
             </body></html>""",
-        ),
-    )
+        )
+
+    page.route("**/*", handle_route)
     page.goto("https://www.youtube.com/@localtest", wait_until="domcontentloaded")
     page.add_style_tag(path=str(ROOT / "src" / "page-button.css"))
     page.add_script_tag(path=str(ROOT / "src" / "shared.js"))
@@ -204,6 +234,70 @@ def check_collector_runtime(browser, console_errors) -> None:
     assert "3–12" in page.locator(".ytlc-button-text").text_content()
     page.screenshot(path=str(RUNTIME_SCREENSHOT), full_page=True)
 
+    selection_switch = page.locator(".ytlc-selection-mode")
+    selection_switch.check()
+    page.wait_for_function(
+        "globalThis.__ytlcStorage.youtubeLinkCopyUiStateV1.selectionMode === true"
+    )
+    page.locator(".ytlc-copy").click()
+    selection_panel = page.locator(".ytlc-selection")
+    selection_panel.wait_for(state="visible")
+    selection_checks = page.locator(".ytlc-selection-item input")
+    assert selection_checks.count() == 3
+    assert page.locator(".ytlc-selection-item input:checked").count() == 3
+    assert page.locator(".ytlc-selection-count").text_content() == "已选 3/3"
+    assert page.locator(".ytlc-button-text").text_content() == "复制已选 3 条"
+
+    selection_checks.nth(1).uncheck()
+    page.wait_for_function(
+        "globalThis.__ytlcStorage.youtubeLinkCopyPageStateV2.sources"
+        "['channel:/@localtest'].pendingBatch.selectedVideoIds.length === 2"
+    )
+    assert page.locator(".ytlc-selection-count").text_content() == "已选 2/3"
+    assert page.locator(".ytlc-button-text").text_content() == "复制已选 2 条"
+
+    page.reload(wait_until="domcontentloaded")
+    page.add_style_tag(path=str(ROOT / "src" / "page-button.css"))
+    page.add_script_tag(path=str(ROOT / "src" / "shared.js"))
+    page.add_script_tag(path=str(ROOT / "src" / "youtube-data.js"))
+    page.add_script_tag(path=str(ROOT / "src" / "collector.js"))
+    page.locator("#yt-link-copy-panel:not([hidden])").wait_for()
+    selection_panel = page.locator(".ytlc-selection")
+    selection_panel.wait_for(state="visible")
+    selection_switch = page.locator(".ytlc-selection-mode")
+    assert selection_switch.is_checked()
+    assert page.locator(".ytlc-selection-count").text_content() == "已选 2/3"
+    assert page.locator(".ytlc-selection-item input:checked").count() == 2
+    assert page.locator(".ytlc-button-text").text_content() == "复制已选 2 条"
+    page.screenshot(path=str(SELECTION_SCREENSHOT), full_page=True)
+
+    page.locator(".ytlc-copy").click()
+    page.wait_for_function(
+        "globalThis.__ytlcStorage.youtubeLinkCopyPageStateV2.sources"
+        "['channel:/@localtest'].pendingBatch === null"
+    )
+    clipboard_text = global_eval(page, "globalThis.__clipboardText")
+    assert clipboard_text == (
+        "候选视频 1\r\nhttps://www.youtube.com/watch?v=35SPFdc1eXY\r\n\r\n"
+        "候选视频 3\r\nhttps://www.youtube.com/watch?v=7I50PECz7SU"
+    ), repr(clipboard_text)
+    selected_state = global_eval(
+        page,
+        "globalThis.__ytlcStorage.youtubeLinkCopyPageStateV2.sources"
+        "['channel:/@localtest']",
+    )
+    assert selected_state["deliveredIds"][-2:] == ["35SPFdc1eXY", "7I50PECz7SU"]
+    assert "3y-WiiUaqb4" not in selected_state["deliveredIds"]
+    assert "3y-WiiUaqb4" in selected_state["skippedIds"]
+    assert selected_state["lastBatch"]["videoIds"] == ["35SPFdc1eXY", "7I50PECz7SU"]
+    assert selected_state["lastBatch"]["titles"] == ["候选视频 1", "候选视频 3"]
+    assert export_button.text_content() == "导出已复制 4 条"
+
+    selection_switch.uncheck()
+    page.wait_for_function(
+        "globalThis.__ytlcStorage.youtubeLinkCopyUiStateV1.selectionMode === false"
+    )
+
     page.evaluate(
         """
         const state = globalThis.__ytlcStorage.youtubeLinkCopyPageStateV2
@@ -260,6 +354,7 @@ def main() -> None:
     print(
         "UI_CHECK=passed "
         f"static_screenshot={SCREENSHOT} runtime_screenshot={RUNTIME_SCREENSHOT} "
+        f"selection_screenshot={SELECTION_SCREENSHOT} "
         f"collapsed_screenshot={COLLAPSED_SCREENSHOT}"
     )
 

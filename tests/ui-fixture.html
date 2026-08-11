@@ -86,12 +86,30 @@
               <option value="50" selected>50 条</option>
             </select>
           </label>
+          <label class="ytlc-option-row" for="fixture-selection-mode">
+            <span>复制前选择</span>
+            <input id="fixture-selection-mode" class="ytlc-selection-mode" type="checkbox" role="switch" checked>
+          </label>
         </div>
         <button class="ytlc-copy" type="button">
           <span class="ytlc-button-text">复制第 2 批：51–100</span>
           <span class="ytlc-count">50</span>
         </button>
         <p class="ytlc-status">第 1 批 1–50 已复制</p>
+        <div class="ytlc-selection" hidden>
+          <div class="ytlc-selection-head">
+            <span class="ytlc-selection-count">已选 2/3</span>
+            <div>
+              <button class="ytlc-select-all" type="button">全选</button>
+              <button class="ytlc-select-none" type="button">清空</button>
+            </div>
+          </div>
+          <div class="ytlc-selection-list" role="list">
+            <label class="ytlc-selection-item"><input type="checkbox" checked><span class="ytlc-selection-text">1. 普通视频 1</span></label>
+            <label class="ytlc-selection-item"><input type="checkbox"><span class="ytlc-selection-text">2. 不需要的视频</span></label>
+            <label class="ytlc-selection-item"><input type="checkbox" checked><span class="ytlc-selection-text">3. 普通视频 3</span></label>
+          </div>
+        </div>
         <div class="ytlc-secondary">
           <button class="ytlc-recopy" type="button">重新复制上一批</button>
           <button class="ytlc-preview-toggle" type="button" aria-expanded="false">查看上一批</button>
@@ -119,6 +137,12 @@ https://www.youtube.com/watch?v=2byPP_9F0-Q</pre>
         const previewButton = document.querySelector(".ytlc-preview-toggle");
         previewButton.textContent = "收起预览";
         previewButton.setAttribute("aria-expanded", "true");
+      }
+      if (demoState === "selection") {
+        document.querySelector(".ytlc-selection").hidden = false;
+        document.querySelector(".ytlc-button-text").textContent = "复制已选 2 条";
+        document.querySelector(".ytlc-count").textContent = "2";
+        document.querySelector(".ytlc-status").textContent = "本批共 3 条，取消不需要的视频后确认复制";
       }
     </script>
   </body>

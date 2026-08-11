@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "YouTube 链接分批复制",
-  "version": "1.4.0",
-  "description": "在 YouTube 页面内分批复制视频链接，可选仅链接或标题加链接格式，每批 10、25 或 50 条。",
+  "version": "1.5.0",
+  "description": "在 YouTube 页面内分批复制视频链接，可在复制前逐条选择，每批 10、25 或 50 条。",
   "permissions": [
     "storage",
     "clipboardWrite"

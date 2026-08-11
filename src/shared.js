@@ -252,6 +252,7 @@
       status: "idle",
       batchNumber: 0,
       deliveredIds: [],
+      skippedIds: [],
       pendingBatch: null,
       lastBatch: null,
       titlesById: {},
@@ -272,24 +273,53 @@
       return state;
     }
 
+    const batch = state.pendingBatch;
+    const selectedSet = Array.isArray(batch.selectedVideoIds)
+      ? new Set(batch.selectedVideoIds)
+      : new Set(batch.videoIds);
+    const selectedIndexes = batch.videoIds
+      .map((videoId, index) => selectedSet.has(videoId) ? index : -1)
+      .filter((index) => index >= 0);
+    if (!selectedIndexes.length) {
+      return state;
+    }
+    const selectedVideoIds = selectedIndexes.map((index) => batch.videoIds[index]);
+    const skippedVideoIds = batch.videoIds.filter((videoId) => !selectedSet.has(videoId));
     const deliveredIds = Array.from(new Set([
       ...(state.deliveredIds || []),
-      ...state.pendingBatch.videoIds
+      ...selectedVideoIds
+    ]));
+    const skippedIds = Array.from(new Set([
+      ...(state.skippedIds || []),
+      ...skippedVideoIds
     ]));
     const titlesById = { ...(state.titlesById || {}) };
-    for (const [index, videoId] of state.pendingBatch.videoIds.entries()) {
-      const title = normalizeVideoTitle(state.pendingBatch.titles?.[index]);
+    for (const index of selectedIndexes) {
+      const videoId = batch.videoIds[index];
+      const title = normalizeVideoTitle(batch.titles?.[index]);
       if (title) {
         titlesById[videoId] = title;
       }
     }
+    const committedBatch = {
+      ...batch,
+      rangeStart: (state.deliveredIds || []).length + 1,
+      rangeEnd: deliveredIds.length,
+      videoIds: selectedVideoIds,
+      urls: selectedIndexes.map((index) => batch.urls?.[index] || normalizeWatchUrl(batch.videoIds[index])),
+      titles: selectedIndexes.map((index) => batch.titles?.[index] || ""),
+      originalCount: batch.videoIds.length
+    };
+    delete committedBatch.selectedVideoIds;
+    delete committedBatch.awaitingSelection;
     return {
       ...state,
       status: "copied",
-      batchNumber: state.pendingBatch.batchNumber,
+      batchNumber: batch.batchNumber,
       deliveredIds,
+      skippedIds,
       titlesById,
-      lastBatch: state.pendingBatch,
+      lastBatch: committedBatch,
       pendingBatch: null,
       progress: 0,
       error: null,

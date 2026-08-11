@@ -45,3 +45,12 @@ test("v1.4 本地预览支持仅链接和标题加链接格式", () => {
   assert.match(collector, /titles:\s*result\.items\.map/);
   assert.match(styles, /\.ytlc-copy-format/);
 });
+
+test("v1.5 本地预览支持复制前逐条选择并记录跳过项", () => {
+  assert.match(collector, /class="ytlc-selection-mode"/);
+  assert.match(collector, /class="ytlc-selection"/);
+  assert.match(collector, /awaitingSelection/);
+  assert.match(collector, /selectedVideoIds/);
+  assert.match(collector, /skippedIds/);
+  assert.match(styles, /\.ytlc-selection-item/);
+});
