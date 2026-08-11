@@ -5,7 +5,6 @@
   const DataCore = globalThis.YTDataCore;
   const PAGE_STATE_KEY = "youtubeLinkCopyPageStateV2";
   const UI_STATE_KEY = "youtubeLinkCopyUiStateV1";
-  const TARGET_COUNT = 50;
   const MAX_CONTINUATION_REQUESTS = 40;
   const COLLECTION_TIMEOUT_MS = 60_000;
   const VISIBLE_LINK_SELECTOR = "a[href*='/watch?v=']";
@@ -14,6 +13,7 @@
 
   let currentSource = null;
   let currentUrl = location.href;
+  let batchSize = Core.DEFAULT_BATCH_SIZE;
   let busy = false;
   let panel = null;
   let copyButton = null;
@@ -25,6 +25,10 @@
   let compactSummary = null;
   let recopyButton = null;
   let fallbackButton = null;
+  let batchSizeSelect = null;
+  let brandBatchSize = null;
+  let previewButton = null;
+  let previewBox = null;
 
   function defaultStore() {
     return { sources: {} };
@@ -65,7 +69,22 @@
 
   async function readUiState() {
     const stored = await chrome.storage.local.get(UI_STATE_KEY);
-    return stored[UI_STATE_KEY] || { collapsed: false };
+    const state = stored[UI_STATE_KEY] || {};
+    return {
+      collapsed: Boolean(state.collapsed),
+      batchSize: Core.normalizeBatchSize(state.batchSize)
+    };
+  }
+
+  async function saveUiState(patch) {
+    const current = await readUiState();
+    const next = {
+      ...current,
+      ...patch,
+      batchSize: Core.normalizeBatchSize(patch.batchSize ?? current.batchSize)
+    };
+    await chrome.storage.local.set({ [UI_STATE_KEY]: next });
+    return next;
   }
 
   async function setCollapsed(collapsed, persist = true) {
@@ -77,9 +96,26 @@
     collapseButton.title = collapsed ? "展开链接工具" : "收起链接工具";
     collapseButton.setAttribute("aria-expanded", String(!collapsed));
     if (persist) {
-      await chrome.storage.local.set({
-        [UI_STATE_KEY]: { collapsed: Boolean(collapsed) }
-      });
+      await saveUiState({ collapsed: Boolean(collapsed) });
+    }
+  }
+
+  async function setBatchSize(value, persist = true) {
+    if (busy) {
+      return;
+    }
+    batchSize = Core.normalizeBatchSize(value);
+    if (batchSizeSelect) {
+      batchSizeSelect.value = String(batchSize);
+    }
+    if (brandBatchSize) {
+      brandBatchSize.textContent = String(batchSize);
+    }
+    if (persist) {
+      await saveUiState({ batchSize });
+    }
+    if (currentSource && panel && !panel.hidden) {
+      await renderState(await readSourceState(currentSource.sourceKey));
     }
   }
 
@@ -93,6 +129,10 @@
     compactSummary = panel.querySelector(".ytlc-compact-summary");
     recopyButton = panel.querySelector(".ytlc-recopy");
     fallbackButton = panel.querySelector(".ytlc-fallback");
+    batchSizeSelect = panel.querySelector(".ytlc-batch-size");
+    brandBatchSize = panel.querySelector(".ytlc-brand-count");
+    previewButton = panel.querySelector(".ytlc-preview-toggle");
+    previewBox = panel.querySelector(".ytlc-preview");
   }
 
   function createPanel() {
@@ -110,7 +150,7 @@
       <div class="ytlc-head">
         <button class="ytlc-brand" type="button" title="展开或收起链接工具">
           <span class="ytlc-mark">▶</span>
-          <span>链接／50</span>
+          <span>链接／<span class="ytlc-brand-count">50</span></span>
           <span class="ytlc-compact-summary"></span>
         </button>
         <div class="ytlc-head-actions">
@@ -119,6 +159,14 @@
         </div>
       </div>
       <div class="ytlc-body">
+        <div class="ytlc-options">
+          <label for="ytlc-batch-size">每批数量</label>
+          <select id="ytlc-batch-size" class="ytlc-batch-size" aria-label="每批复制数量">
+            <option value="10">10 条</option>
+            <option value="25">25 条</option>
+            <option value="50" selected>50 条</option>
+          </select>
+        </div>
         <button class="ytlc-copy" type="button">
           <span class="ytlc-button-text">复制第 1 批：1–50</span>
           <span class="ytlc-count">50</span>
@@ -126,8 +174,10 @@
         <p class="ytlc-status" role="status">读取当前页面，无需切换标签</p>
         <div class="ytlc-secondary">
           <button class="ytlc-recopy" type="button" hidden>重新复制上一批</button>
+          <button class="ytlc-preview-toggle" type="button" aria-expanded="false" hidden>查看上一批</button>
           <button class="ytlc-fallback" type="button" hidden>复制当前可见链接</button>
         </div>
+        <pre class="ytlc-preview" tabindex="0" hidden></pre>
       </div>
     `;
     document.body.append(panel);
@@ -136,7 +186,11 @@
     copyButton.addEventListener("click", () => void runCopy());
     resetButton.addEventListener("click", () => void resetCurrentSource());
     recopyButton.addEventListener("click", () => void recopyLastBatch());
+    previewButton.addEventListener("click", togglePreview);
     fallbackButton.addEventListener("click", () => void copyVisibleFallback());
+    batchSizeSelect.addEventListener("change", () =>
+      void setBatchSize(batchSizeSelect.value)
+    );
     collapseButton.addEventListener("click", () =>
       void setCollapsed(panel.dataset.collapsed !== "true")
     );
@@ -162,7 +216,7 @@
     panel.dataset.tone = tone;
   }
 
-  function setButtonLabel(text, count = "50") {
+  function setButtonLabel(text, count = String(batchSize)) {
     if (!copyButton) {
       return;
     }
@@ -174,6 +228,25 @@
     if (compactSummary) {
       compactSummary.textContent = text ? `· ${text}` : "";
     }
+  }
+
+  function closePreview() {
+    if (!previewBox || !previewButton) {
+      return;
+    }
+    previewBox.hidden = true;
+    previewButton.textContent = "查看上一批";
+    previewButton.setAttribute("aria-expanded", "false");
+  }
+
+  function togglePreview() {
+    if (!previewBox || !previewButton || previewButton.hidden) {
+      return;
+    }
+    const willOpen = previewBox.hidden;
+    previewBox.hidden = !willOpen;
+    previewButton.textContent = willOpen ? "收起预览" : "查看上一批";
+    previewButton.setAttribute("aria-expanded", String(willOpen));
   }
 
   function showToast(message, tone = "normal") {
@@ -228,7 +301,7 @@
       }
       found.add(videoId);
       items.push({ videoId, url: Core.normalizeWatchUrl(videoId) });
-      if (items.length === TARGET_COUNT) {
+      if (items.length === batchSize) {
         break;
       }
     }
@@ -244,7 +317,7 @@
     panel.hidden = false;
     const deliveredCount = state.deliveredIds.length;
     const nextStart = deliveredCount + 1;
-    const nextEnd = deliveredCount + TARGET_COUNT;
+    const nextEnd = deliveredCount + batchSize;
     const lastRange = Core.getBatchRange(state.lastBatch, deliveredCount);
     const pendingRange = Core.getBatchRange(state.pendingBatch, deliveredCount, true);
     const visibleFallbackCount = state.status === "error"
@@ -254,9 +327,20 @@
     copyButton.disabled = busy || state.exhausted;
     resetButton.disabled = busy;
     recopyButton.disabled = busy;
+    previewButton.disabled = busy;
+    batchSizeSelect.disabled = busy;
     fallbackButton.disabled = busy || visibleFallbackCount === 0;
     recopyButton.hidden = !state.lastBatch?.urls?.length;
+    previewButton.hidden = !state.lastBatch?.urls?.length;
     fallbackButton.hidden = state.status !== "error" || Boolean(state.pendingBatch);
+    brandBatchSize.textContent = String(batchSize);
+    batchSizeSelect.value = String(batchSize);
+    if (state.lastBatch?.urls?.length) {
+      previewBox.textContent = Core.formatLinks(state.lastBatch.urls);
+    } else {
+      previewBox.textContent = "";
+      closePreview();
+    }
     if (!fallbackButton.hidden) {
       fallbackButton.textContent = visibleFallbackCount
         ? `复制当前可见的 ${visibleFallbackCount} 条`
@@ -282,7 +366,10 @@
       setWidgetStatus(state.error || "完整读取失败，可以重试或复制当前可见链接", "error");
       setCompactSummary("读取失败");
     } else if (deliveredCount) {
-      setButtonLabel(`复制第 ${state.batchNumber + 1} 批：${nextStart}–${nextEnd}`, "50");
+      setButtonLabel(
+        `复制第 ${state.batchNumber + 1} 批：${nextStart}–${nextEnd}`,
+        String(batchSize)
+      );
       setWidgetStatus(
         lastRange
           ? `第 ${state.lastBatch.batchNumber} 批 ${lastRange.start}–${lastRange.end} 已复制`
@@ -291,7 +378,7 @@
       );
       setCompactSummary(`已复制 ${deliveredCount} 条`);
     } else {
-      setButtonLabel("复制第 1 批：1–50", "50");
+      setButtonLabel(`复制第 1 批：1–${batchSize}`, String(batchSize));
       setWidgetStatus(`${currentSource.label} · 无需切换页面`);
       setCompactSummary("未开始");
     }
@@ -348,7 +435,7 @@
     return response.json();
   }
 
-  async function collectSourceBatch(source, state, onProgress) {
+  async function collectSourceBatch(source, state, targetCount, onProgress) {
     const deadline = Date.now() + COLLECTION_TIMEOUT_MS;
     const html = await fetchInitialPage(source);
     const initialData = DataCore.extractInitialData(html);
@@ -363,7 +450,7 @@
       startContinuation: pagination.cursor,
       sourceExhausted: pagination.sourceExhausted,
       excludedIds: state.deliveredIds,
-      targetCount: TARGET_COUNT,
+      targetCount,
       maxRequests: MAX_CONTINUATION_REQUESTS,
       onProgress,
       onCursorFallback: () => {
@@ -508,14 +595,17 @@
       return;
     }
     currentSource = source;
+    const requestedBatchSize = batchSize;
     busy = true;
     copyButton.disabled = true;
     resetButton.disabled = true;
     recopyButton.disabled = true;
+    previewButton.disabled = true;
+    batchSizeSelect.disabled = true;
     fallbackButton.disabled = true;
-    setButtonLabel("正在读取视频", "0/50");
+    setButtonLabel("正在读取视频", `0/${requestedBatchSize}`);
     setWidgetStatus("正在读取页面数据，不会滚动或切换页面");
-    setCompactSummary("读取 0/50");
+    setCompactSummary(`读取 0/${requestedBatchSize}`);
 
     try {
       let state = await readSourceState(source.sourceKey);
@@ -538,10 +628,10 @@
         error: null,
         progress: 0
       });
-      const result = await collectSourceBatch(source, state, (count) => {
-        setButtonLabel("正在读取视频", `${count}/50`);
-        setWidgetStatus(`已找到 ${count}/50 条普通视频链接`);
-        setCompactSummary(`读取 ${count}/50`);
+      const result = await collectSourceBatch(source, state, requestedBatchSize, (count) => {
+        setButtonLabel("正在读取视频", `${count}/${requestedBatchSize}`);
+        setWidgetStatus(`已找到 ${count}/${requestedBatchSize} 条普通视频链接`);
+        setCompactSummary(`读取 ${count}/${requestedBatchSize}`);
       });
 
       if (!result.items.length) {
@@ -611,11 +701,13 @@
     currentUrl = location.href;
     currentSource = Core.classifySource(currentUrl);
     createPanel();
+    panel.hidden = true;
+    closePreview();
     if (!currentSource) {
-      panel.hidden = true;
       return;
     }
     const uiState = await readUiState();
+    await setBatchSize(uiState.batchSize, false);
     await setCollapsed(uiState.collapsed, false);
     panel.hidden = false;
     const state = await readSourceState(currentSource.sourceKey);

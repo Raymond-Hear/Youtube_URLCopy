@@ -5,3 +5,4 @@ coverage/
 Thumbs.db
 .idea/
 .vscode/
+.artifacts/

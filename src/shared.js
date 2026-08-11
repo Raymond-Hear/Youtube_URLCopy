@@ -8,6 +8,8 @@
   "use strict";
 
   const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
+  const BATCH_SIZE_OPTIONS = Object.freeze([10, 25, 50]);
+  const DEFAULT_BATCH_SIZE = 50;
   const YOUTUBE_HOSTS = new Set(["www.youtube.com", "youtube.com"]);
   const CHANNEL_PREFIXES = new Set(["channel", "user", "c"]);
   const IRRELEVANT_SEARCH_PARAMS = new Set([
@@ -141,6 +143,11 @@
       .join("\r\n\r\n");
   }
 
+  function normalizeBatchSize(value) {
+    const size = Number(value);
+    return BATCH_SIZE_OPTIONS.includes(size) ? size : DEFAULT_BATCH_SIZE;
+  }
+
   function getBatchRange(batch, deliveredCount, pending = false) {
     if (!batch?.urls?.length) {
       return null;
@@ -197,6 +204,8 @@
   }
 
   return {
+    BATCH_SIZE_OPTIONS,
+    DEFAULT_BATCH_SIZE,
     VIDEO_ID_PATTERN,
     classifySource,
     commitPendingBatch,
@@ -204,6 +213,7 @@
     formatLinks,
     getBatchRange,
     getChannelBasePath,
+    normalizeBatchSize,
     normalizeWatchUrl,
     videoIdFromHref
   };

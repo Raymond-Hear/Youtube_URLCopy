@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>链接／50 页面按钮预览</title>
+    <title>链接批量复制第二阶段预览</title>
     <link rel="stylesheet" href="../src/page-button.css">
     <style>
       body {
@@ -70,6 +70,14 @@
         </div>
       </div>
       <div class="ytlc-body">
+        <div class="ytlc-options">
+          <label for="fixture-batch-size">每批数量</label>
+          <select id="fixture-batch-size" class="ytlc-batch-size">
+            <option value="10">10 条</option>
+            <option value="25">25 条</option>
+            <option value="50" selected>50 条</option>
+          </select>
+        </div>
         <button class="ytlc-copy" type="button">
           <span class="ytlc-button-text">复制第 2 批：51–100</span>
           <span class="ytlc-count">50</span>
@@ -77,14 +85,27 @@
         <p class="ytlc-status">第 1 批 1–50 已复制</p>
         <div class="ytlc-secondary">
           <button class="ytlc-recopy" type="button">重新复制上一批</button>
+          <button class="ytlc-preview-toggle" type="button" aria-expanded="false">查看上一批</button>
           <button class="ytlc-fallback" type="button" hidden>复制当前可见链接</button>
         </div>
+        <pre class="ytlc-preview" tabindex="0" hidden>https://www.youtube.com/watch?v=_GPSfzoVvC4
+
+https://www.youtube.com/watch?v=_SpyH8wTA-4
+
+https://www.youtube.com/watch?v=2byPP_9F0-Q</pre>
       </div>
     </aside>
     <script>
-      if (location.hash === "#collapsed") {
+      const demoState = new URLSearchParams(location.search).get("state");
+      if (demoState === "collapsed") {
         document.querySelector("#yt-link-copy-panel").dataset.collapsed = "true";
         document.querySelector(".ytlc-collapse").textContent = "+";
+      }
+      if (demoState === "preview") {
+        document.querySelector(".ytlc-preview").hidden = false;
+        const previewButton = document.querySelector(".ytlc-preview-toggle");
+        previewButton.textContent = "收起预览";
+        previewButton.setAttribute("aria-expanded", "true");
       }
     </script>
   </body>

@@ -5,11 +5,13 @@
   --ytlc-red: #e62920;
   --ytlc-red-dark: #b71e17;
   --ytlc-green: #147751;
+  --ytlc-soft: #f4f0e8;
+  --ytlc-line: rgba(23, 23, 23, 0.16);
   position: fixed;
   top: 82px;
   right: 24px;
   z-index: 2147483647;
-  width: 250px;
+  width: 270px;
   padding: 10px;
   border: 1px solid rgba(23, 23, 23, 0.25);
   border-radius: 12px;
@@ -41,6 +43,8 @@
   --ytlc-ink: #f5f5f5;
   --ytlc-muted: #aaa;
   --ytlc-paper: #232323;
+  --ytlc-soft: #303030;
+  --ytlc-line: rgba(255, 255, 255, 0.16);
   border-color: rgba(255, 255, 255, 0.18);
 }
 
@@ -152,6 +156,39 @@
   transition: background 120ms ease, transform 120ms ease;
 }
 
+#yt-link-copy-panel .ytlc-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 2px 8px;
+  color: var(--ytlc-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+#yt-link-copy-panel .ytlc-batch-size {
+  min-width: 76px;
+  padding: 4px 22px 4px 8px;
+  border: 1px solid var(--ytlc-line);
+  border-radius: 7px;
+  background: var(--ytlc-soft);
+  color: var(--ytlc-ink);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+#yt-link-copy-panel .ytlc-batch-size:focus-visible {
+  outline: 2px solid rgba(230, 41, 32, 0.42);
+  outline-offset: 2px;
+}
+
+#yt-link-copy-panel .ytlc-batch-size:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 #yt-link-copy-panel .ytlc-copy:not(:disabled):hover {
   background: #f03329;
   transform: translateY(-1px);
@@ -181,6 +218,7 @@
   display: flex;
   min-height: 24px;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   margin: 6px 2px 0;
 }
@@ -207,6 +245,23 @@
 
 #yt-link-copy-panel .ytlc-fallback {
   color: var(--ytlc-red) !important;
+}
+
+#yt-link-copy-panel .ytlc-preview {
+  max-height: 180px;
+  margin: 5px 2px 1px;
+  padding: 8px;
+  overflow: auto;
+  border: 1px solid var(--ytlc-line);
+  border-radius: 7px;
+  background: var(--ytlc-soft);
+  color: var(--ytlc-ink);
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 9px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  user-select: text;
 }
 
 #yt-link-copy-panel[data-tone="success"] .ytlc-status {

@@ -80,6 +80,15 @@ test("复制格式在每条链接之间保留一个空行", () => {
   );
 });
 
+test("批次大小只接受本地界面提供的 10、25、50", () => {
+  assert.deepEqual(Core.BATCH_SIZE_OPTIONS, [10, 25, 50]);
+  assert.equal(Core.normalizeBatchSize(10), 10);
+  assert.equal(Core.normalizeBatchSize("25"), 25);
+  assert.equal(Core.normalizeBatchSize(50), 50);
+  assert.equal(Core.normalizeBatchSize(100), 50);
+  assert.equal(Core.normalizeBatchSize("invalid"), 50);
+});
+
 test("只有匹配的待复制批次才能推进状态并去重", () => {
   const state = {
     ...Core.createDefaultSourceState(),
