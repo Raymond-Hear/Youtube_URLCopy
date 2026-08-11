@@ -148,6 +148,38 @@
     return BATCH_SIZE_OPTIONS.includes(size) ? size : DEFAULT_BATCH_SIZE;
   }
 
+  function urlsFromVideoIds(videoIds) {
+    const seen = new Set();
+    const urls = [];
+    for (const videoId of Array.isArray(videoIds) ? videoIds : []) {
+      const url = normalizeWatchUrl(videoId);
+      if (!url || seen.has(url)) {
+        continue;
+      }
+      seen.add(url);
+      urls.push(url);
+    }
+    return urls;
+  }
+
+  function createExportFilename(source, count, now = new Date()) {
+    const date = now instanceof Date && !Number.isNaN(now.getTime()) ? now : new Date();
+    const dateStamp = [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, "0"),
+      String(date.getDate()).padStart(2, "0")
+    ].join("-");
+    const rawLabel = source?.label || source?.type || "来源";
+    const safeLabel = String(rawLabel)
+      .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-")
+      .replace(/\s+/g, " ")
+      .replace(/-+/g, "-")
+      .replace(/^[ .-]+|[ .-]+$/g, "")
+      .slice(0, 48) || "来源";
+    const safeCount = Number.isInteger(count) && count > 0 ? count : 0;
+    return `YouTube链接-${safeLabel}-${safeCount}条-${dateStamp}.txt`;
+  }
+
   function getBatchRange(batch, deliveredCount, pending = false) {
     if (!batch?.urls?.length) {
       return null;
@@ -209,12 +241,14 @@
     VIDEO_ID_PATTERN,
     classifySource,
     commitPendingBatch,
+    createExportFilename,
     createDefaultSourceState,
     formatLinks,
     getBatchRange,
     getChannelBasePath,
     normalizeBatchSize,
     normalizeWatchUrl,
+    urlsFromVideoIds,
     videoIdFromHref
   };
 });

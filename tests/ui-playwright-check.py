@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 from playwright.sync_api import sync_playwright
 
@@ -123,6 +124,23 @@ def check_collector_runtime(browser, console_errors) -> None:
 
     assert page.locator(".ytlc-batch-size").input_value() == "25"
     assert "3–27" in page.locator(".ytlc-button-text").text_content()
+
+    export_button = page.locator(".ytlc-export")
+    assert export_button.is_visible()
+    assert export_button.text_content() == "导出已复制 2 条"
+    with page.expect_download() as download_info:
+        export_button.click()
+    download = download_info.value
+    assert re.match(
+        r"^YouTube链接-@localtest-2条-\d{4}-\d{2}-\d{2}\.txt$",
+        download.suggested_filename,
+    )
+    download_path = download.path()
+    assert download_path is not None
+    assert Path(download_path).read_bytes() == (
+        b"https://www.youtube.com/watch?v=_GPSfzoVvC4\r\n\r\n"
+        b"https://www.youtube.com/watch?v=_SpyH8wTA-4"
+    )
 
     page.locator(".ytlc-preview-toggle").click()
     preview = page.locator(".ytlc-preview")

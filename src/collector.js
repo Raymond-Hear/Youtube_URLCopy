@@ -29,6 +29,7 @@
   let brandBatchSize = null;
   let previewButton = null;
   let previewBox = null;
+  let exportButton = null;
 
   function defaultStore() {
     return { sources: {} };
@@ -133,6 +134,7 @@
     brandBatchSize = panel.querySelector(".ytlc-brand-count");
     previewButton = panel.querySelector(".ytlc-preview-toggle");
     previewBox = panel.querySelector(".ytlc-preview");
+    exportButton = panel.querySelector(".ytlc-export");
   }
 
   function createPanel() {
@@ -175,6 +177,7 @@
         <div class="ytlc-secondary">
           <button class="ytlc-recopy" type="button" hidden>重新复制上一批</button>
           <button class="ytlc-preview-toggle" type="button" aria-expanded="false" hidden>查看上一批</button>
+          <button class="ytlc-export" type="button" hidden>导出已复制记录</button>
           <button class="ytlc-fallback" type="button" hidden>复制当前可见链接</button>
         </div>
         <pre class="ytlc-preview" tabindex="0" hidden></pre>
@@ -187,6 +190,7 @@
     resetButton.addEventListener("click", () => void resetCurrentSource());
     recopyButton.addEventListener("click", () => void recopyLastBatch());
     previewButton.addEventListener("click", togglePreview);
+    exportButton.addEventListener("click", () => void exportDeliveredLinks());
     fallbackButton.addEventListener("click", () => void copyVisibleFallback());
     batchSizeSelect.addEventListener("change", () =>
       void setBatchSize(batchSizeSelect.value)
@@ -328,10 +332,13 @@
     resetButton.disabled = busy;
     recopyButton.disabled = busy;
     previewButton.disabled = busy;
+    exportButton.disabled = busy || deliveredCount === 0;
     batchSizeSelect.disabled = busy;
     fallbackButton.disabled = busy || visibleFallbackCount === 0;
     recopyButton.hidden = !state.lastBatch?.urls?.length;
     previewButton.hidden = !state.lastBatch?.urls?.length;
+    exportButton.hidden = deliveredCount === 0;
+    exportButton.textContent = `导出已复制 ${deliveredCount} 条`;
     fallbackButton.hidden = state.status !== "error" || Boolean(state.pendingBatch);
     brandBatchSize.textContent = String(batchSize);
     batchSizeSelect.value = String(batchSize);
@@ -541,6 +548,32 @@
     }
   }
 
+  async function exportDeliveredLinks() {
+    if (busy || !currentSource) {
+      return;
+    }
+    const state = await readSourceState(currentSource.sourceKey);
+    const urls = Core.urlsFromVideoIds(state.deliveredIds);
+    if (!urls.length) {
+      showToast("当前来源还没有已复制的链接");
+      return;
+    }
+
+    const blobUrl = URL.createObjectURL(new Blob(
+      [Core.formatLinks(urls)],
+      { type: "text/plain;charset=utf-8" }
+    ));
+    const downloadLink = document.createElement("a");
+    downloadLink.href = blobUrl;
+    downloadLink.download = Core.createExportFilename(currentSource, urls.length);
+    downloadLink.hidden = true;
+    document.body.append(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000);
+    showToast(`已导出当前来源的 ${urls.length} 条链接`, "success");
+  }
+
   async function copyVisibleFallback() {
     if (busy || !currentSource) {
       return;
@@ -601,6 +634,7 @@
     resetButton.disabled = true;
     recopyButton.disabled = true;
     previewButton.disabled = true;
+    exportButton.disabled = true;
     batchSizeSelect.disabled = true;
     fallbackButton.disabled = true;
     setButtonLabel("正在读取视频", `0/${requestedBatchSize}`);

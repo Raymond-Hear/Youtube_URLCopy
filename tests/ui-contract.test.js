@@ -28,3 +28,11 @@ test("v1.3 本地预览支持批次大小选择和上一批预览", () => {
   assert.match(styles, /\.ytlc-batch-size/);
   assert.match(styles, /\.ytlc-preview/);
 });
+
+test("v1.3.1 本地预览可以导出当前来源的已复制记录", () => {
+  assert.match(collector, /class="ytlc-export"/);
+  assert.match(collector, /exportDeliveredLinks/);
+  assert.match(collector, /Core\.urlsFromVideoIds/);
+  assert.match(collector, /Core\.createExportFilename/);
+  assert.match(collector, /text\/plain;charset=utf-8/);
+});

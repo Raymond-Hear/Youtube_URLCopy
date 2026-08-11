@@ -89,6 +89,31 @@ test("批次大小只接受本地界面提供的 10、25、50", () => {
   assert.equal(Core.normalizeBatchSize("invalid"), 50);
 });
 
+test("导出链接按已复制 ID 顺序规范化并去重", () => {
+  assert.deepEqual(
+    Core.urlsFromVideoIds([
+      "_GPSfzoVvC4",
+      "invalid",
+      "_SpyH8wTA-4",
+      "_GPSfzoVvC4"
+    ]),
+    [
+      "https://www.youtube.com/watch?v=_GPSfzoVvC4",
+      "https://www.youtube.com/watch?v=_SpyH8wTA-4"
+    ]
+  );
+});
+
+test("导出文件名包含来源、数量和日期且移除非法字符", () => {
+  const filename = Core.createExportFilename(
+    { type: "search", label: "搜索：AI / Agent?" },
+    25,
+    new Date(2026, 7, 12)
+  );
+  assert.match(filename, /^YouTube链接-搜索：AI - Agent-25条-2026-08-12\.txt$/);
+  assert.doesNotMatch(filename, /[<>:"/\\|?*]/);
+});
+
 test("只有匹配的待复制批次才能推进状态并去重", () => {
   const state = {
     ...Core.createDefaultSourceState(),
