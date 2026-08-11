@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>链接／50 页面按钮预览</title>
+    <link rel="stylesheet" href="../src/page-button.css">
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #f8f8f8;
+        color: #0f0f0f;
+        font-family: "Microsoft YaHei UI", sans-serif;
+      }
+      .mock-header {
+        height: 64px;
+        border-bottom: 1px solid #ddd;
+        background: white;
+      }
+      .mock-page {
+        max-width: 1080px;
+        margin: 28px auto;
+        padding: 0 24px;
+      }
+      .mock-channel {
+        height: 130px;
+        border-radius: 18px;
+        background: linear-gradient(120deg, #dedede, #f4f4f4);
+      }
+      .mock-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 18px;
+        margin-top: 28px;
+      }
+      .mock-video div {
+        aspect-ratio: 16 / 9;
+        border-radius: 10px;
+        background: #d6d6d6;
+      }
+      .mock-video p {
+        margin: 9px 0 0;
+        font-size: 12px;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="mock-header"></div>
+    <main class="mock-page">
+      <div class="mock-channel"></div>
+      <div class="mock-grid">
+        <article class="mock-video"><div></div><p>示例视频标题</p></article>
+        <article class="mock-video"><div></div><p>示例视频标题</p></article>
+        <article class="mock-video"><div></div><p>示例视频标题</p></article>
+        <article class="mock-video"><div></div><p>示例视频标题</p></article>
+      </div>
+    </main>
+    <aside id="yt-link-copy-panel" data-theme="light" data-collapsed="false" data-tone="success">
+      <div class="ytlc-head">
+        <button class="ytlc-brand" type="button">
+          <span class="ytlc-mark">▶</span>
+          <span>链接／50</span>
+          <span class="ytlc-compact-summary">· 已复制 50 条</span>
+        </button>
+        <div class="ytlc-head-actions">
+          <button class="ytlc-reset" type="button">重置</button>
+          <button class="ytlc-collapse" type="button">−</button>
+        </div>
+      </div>
+      <div class="ytlc-body">
+        <button class="ytlc-copy" type="button">
+          <span class="ytlc-button-text">复制第 2 批：51–100</span>
+          <span class="ytlc-count">50</span>
+        </button>
+        <p class="ytlc-status">第 1 批 1–50 已复制</p>
+        <div class="ytlc-secondary">
+          <button class="ytlc-recopy" type="button">重新复制上一批</button>
+          <button class="ytlc-fallback" type="button" hidden>复制当前可见链接</button>
+        </div>
+      </div>
+    </aside>
+    <script>
+      if (location.hash === "#collapsed") {
+        document.querySelector("#yt-link-copy-panel").dataset.collapsed = "true";
+        document.querySelector(".ytlc-collapse").textContent = "+";
+      }
+    </script>
+  </body>
+</html>

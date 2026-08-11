@@ -1,0 +1,10 @@
+{
+  "name": "youtube-url-copy-edge-extension",
+  "version": "1.2.1",
+  "private": true,
+  "description": "每批复制最多 50 个 YouTube 标准视频链接的 Edge 扩展",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "check": "node --check src/shared.js && node --check src/youtube-data.js && node --check src/background.js && node --check src/collector.js"
+  }
+}
