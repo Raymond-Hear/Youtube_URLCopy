@@ -61,3 +61,8 @@ test("v1.6 本地预览支持 TXT 与 CSV 两种导出格式", () => {
   assert.match(collector, /text\/csv;charset=utf-8/);
   assert.match(collector, /\\uFEFF/);
 });
+
+test("v1.7 的浏览器快捷键仍调用页面主复制动作", () => {
+  assert.match(collector, /message\?\.type !== "TRIGGER_PAGE_COPY"/);
+  assert.match(collector, /void runCopy\(\)/);
+});

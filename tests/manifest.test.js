@@ -65,3 +65,14 @@ test("工具栏和页面按钮共用内容脚本且不再打开弹窗", () => {
   const background = fs.readFileSync(path.join(projectRoot, "src/background.js"), "utf8");
   assert.doesNotMatch(background, /chrome\.tabs\.create/);
 });
+
+test("快捷键复用页面复制流程且不增加权限", () => {
+  assert.deepEqual(manifest.commands["copy-next-batch"], {
+    suggested_key: { default: "Alt+Shift+Y" },
+    description: "复制或确认下一批 YouTube 视频链接"
+  });
+  const background = fs.readFileSync(path.join(projectRoot, "src/background.js"), "utf8");
+  assert.match(background, /chrome\.commands\.onCommand/);
+  assert.match(background, /TRIGGER_PAGE_COPY/);
+  assert.deepEqual(manifest.permissions.sort(), ["clipboardWrite", "storage"]);
+});

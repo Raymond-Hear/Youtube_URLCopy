@@ -239,7 +239,7 @@
             <input id="ytlc-selection-mode" class="ytlc-selection-mode" type="checkbox" role="switch">
           </label>
         </div>
-        <button class="ytlc-copy" type="button">
+        <button class="ytlc-copy" type="button" title="快捷键：Alt + Shift + Y">
           <span class="ytlc-button-text">复制第 1 批：1–50</span>
           <span class="ytlc-count">50</span>
         </button>

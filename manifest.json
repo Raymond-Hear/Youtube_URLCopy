@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "YouTube 链接分批复制",
-  "version": "1.6.0",
-  "description": "在 YouTube 页面内分批复制视频链接，可逐条选择并导出 TXT 或 CSV 清单。",
+  "version": "1.7.0",
+  "description": "在 YouTube 页面内分批复制视频链接，可逐条选择、导出清单或使用快捷键操作。",
   "permissions": [
     "storage",
     "clipboardWrite"
@@ -27,6 +27,14 @@
       "32": "assets/icon-32.png",
       "48": "assets/icon-48.png",
       "128": "assets/icon-128.png"
+    }
+  },
+  "commands": {
+    "copy-next-batch": {
+      "suggested_key": {
+        "default": "Alt+Shift+Y"
+      },
+      "description": "复制或确认下一批 YouTube 视频链接"
     }
   },
   "content_scripts": [
