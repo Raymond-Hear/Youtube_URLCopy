@@ -71,12 +71,21 @@
       </div>
       <div class="ytlc-body">
         <div class="ytlc-options">
-          <label for="fixture-batch-size">每批数量</label>
-          <select id="fixture-batch-size" class="ytlc-batch-size">
-            <option value="10">10 条</option>
-            <option value="25">25 条</option>
-            <option value="50" selected>50 条</option>
-          </select>
+          <label class="ytlc-option-row" for="fixture-copy-format">
+            <span>复制格式</span>
+            <select id="fixture-copy-format" class="ytlc-copy-format">
+              <option value="link">仅链接</option>
+              <option value="title-link" selected>标题＋链接</option>
+            </select>
+          </label>
+          <label class="ytlc-option-row" for="fixture-batch-size">
+            <span>每批数量</span>
+            <select id="fixture-batch-size" class="ytlc-batch-size">
+              <option value="10">10 条</option>
+              <option value="25">25 条</option>
+              <option value="50" selected>50 条</option>
+            </select>
+          </label>
         </div>
         <button class="ytlc-copy" type="button">
           <span class="ytlc-button-text">复制第 2 批：51–100</span>
@@ -89,10 +98,13 @@
           <button class="ytlc-export" type="button">导出已复制 50 条</button>
           <button class="ytlc-fallback" type="button" hidden>复制当前可见链接</button>
         </div>
-        <pre class="ytlc-preview" tabindex="0" hidden>https://www.youtube.com/watch?v=_GPSfzoVvC4
+        <pre class="ytlc-preview" tabindex="0" hidden>普通视频 1
+https://www.youtube.com/watch?v=_GPSfzoVvC4
 
+普通视频 2
 https://www.youtube.com/watch?v=_SpyH8wTA-4
 
+普通视频 3
 https://www.youtube.com/watch?v=2byPP_9F0-Q</pre>
       </div>
     </aside>

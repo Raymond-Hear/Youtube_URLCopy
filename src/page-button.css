@@ -157,18 +157,24 @@
 }
 
 #yt-link-copy-panel .ytlc-options {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  display: grid;
+  gap: 6px;
   margin: 0 2px 8px;
   color: var(--ytlc-muted);
   font-size: 10px;
   font-weight: 700;
 }
 
-#yt-link-copy-panel .ytlc-batch-size {
-  min-width: 76px;
+#yt-link-copy-panel .ytlc-option-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+#yt-link-copy-panel .ytlc-batch-size,
+#yt-link-copy-panel .ytlc-copy-format {
+  min-width: 92px;
   padding: 4px 22px 4px 8px;
   border: 1px solid var(--ytlc-line);
   border-radius: 7px;
@@ -179,12 +185,14 @@
   cursor: pointer;
 }
 
-#yt-link-copy-panel .ytlc-batch-size:focus-visible {
+#yt-link-copy-panel .ytlc-batch-size:focus-visible,
+#yt-link-copy-panel .ytlc-copy-format:focus-visible {
   outline: 2px solid rgba(230, 41, 32, 0.42);
   outline-offset: 2px;
 }
 
-#yt-link-copy-panel .ytlc-batch-size:disabled {
+#yt-link-copy-panel .ytlc-batch-size:disabled,
+#yt-link-copy-panel .ytlc-copy-format:disabled {
   cursor: wait;
   opacity: 0.6;
 }

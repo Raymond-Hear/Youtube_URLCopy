@@ -10,6 +10,8 @@
   const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
   const BATCH_SIZE_OPTIONS = Object.freeze([10, 25, 50]);
   const DEFAULT_BATCH_SIZE = 50;
+  const COPY_FORMAT_OPTIONS = Object.freeze(["link", "title-link"]);
+  const DEFAULT_COPY_FORMAT = "link";
   const YOUTUBE_HOSTS = new Set(["www.youtube.com", "youtube.com"]);
   const CHANNEL_PREFIXES = new Set(["channel", "user", "c"]);
   const IRRELEVANT_SEARCH_PARAMS = new Set([
@@ -143,6 +145,46 @@
       .join("\r\n\r\n");
   }
 
+  function normalizeCopyFormat(value) {
+    return COPY_FORMAT_OPTIONS.includes(value) ? value : DEFAULT_COPY_FORMAT;
+  }
+
+  function normalizeVideoTitle(value) {
+    return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+  }
+
+  function formatVideoItems(items, format = DEFAULT_COPY_FORMAT) {
+    const normalizedFormat = normalizeCopyFormat(format);
+    const blocks = [];
+    for (const item of Array.isArray(items) ? items : []) {
+      const url = item?.url || normalizeWatchUrl(item?.videoId);
+      if (!url) {
+        continue;
+      }
+      const title = normalizeVideoTitle(item?.title);
+      blocks.push(normalizedFormat === "title-link" && title
+        ? `${title}\r\n${url}`
+        : url);
+    }
+    return blocks.join("\r\n\r\n");
+  }
+
+  function itemsFromBatch(batch) {
+    const videoIds = Array.isArray(batch?.videoIds) ? batch.videoIds : [];
+    const urls = Array.isArray(batch?.urls) ? batch.urls : [];
+    const titles = Array.isArray(batch?.titles) ? batch.titles : [];
+    const length = Math.max(videoIds.length, urls.length);
+    return Array.from({ length }, (_value, index) => ({
+      videoId: videoIds[index] || null,
+      url: urls[index] || normalizeWatchUrl(videoIds[index]),
+      title: normalizeVideoTitle(titles[index])
+    })).filter((item) => item.url);
+  }
+
+  function formatBatch(batch, format = DEFAULT_COPY_FORMAT) {
+    return formatVideoItems(itemsFromBatch(batch), format);
+  }
+
   function normalizeBatchSize(value) {
     const size = Number(value);
     return BATCH_SIZE_OPTIONS.includes(size) ? size : DEFAULT_BATCH_SIZE;
@@ -160,6 +202,17 @@
       urls.push(url);
     }
     return urls;
+  }
+
+  function itemsFromVideoIds(videoIds, titlesById = {}) {
+    return urlsFromVideoIds(videoIds).map((url) => {
+      const videoId = new URL(url).searchParams.get("v");
+      return {
+        videoId,
+        url,
+        title: normalizeVideoTitle(titlesById?.[videoId])
+      };
+    });
   }
 
   function createExportFilename(source, count, now = new Date()) {
@@ -201,6 +254,7 @@
       deliveredIds: [],
       pendingBatch: null,
       lastBatch: null,
+      titlesById: {},
       pagination: {
         cursor: null,
         queuedItems: [],
@@ -222,11 +276,19 @@
       ...(state.deliveredIds || []),
       ...state.pendingBatch.videoIds
     ]));
+    const titlesById = { ...(state.titlesById || {}) };
+    for (const [index, videoId] of state.pendingBatch.videoIds.entries()) {
+      const title = normalizeVideoTitle(state.pendingBatch.titles?.[index]);
+      if (title) {
+        titlesById[videoId] = title;
+      }
+    }
     return {
       ...state,
       status: "copied",
       batchNumber: state.pendingBatch.batchNumber,
       deliveredIds,
+      titlesById,
       lastBatch: state.pendingBatch,
       pendingBatch: null,
       progress: 0,
@@ -237,16 +299,24 @@
 
   return {
     BATCH_SIZE_OPTIONS,
+    COPY_FORMAT_OPTIONS,
     DEFAULT_BATCH_SIZE,
+    DEFAULT_COPY_FORMAT,
     VIDEO_ID_PATTERN,
     classifySource,
     commitPendingBatch,
     createExportFilename,
     createDefaultSourceState,
+    formatBatch,
     formatLinks,
+    formatVideoItems,
     getBatchRange,
     getChannelBasePath,
+    itemsFromBatch,
+    itemsFromVideoIds,
     normalizeBatchSize,
+    normalizeCopyFormat,
+    normalizeVideoTitle,
     normalizeWatchUrl,
     urlsFromVideoIds,
     videoIdFromHref

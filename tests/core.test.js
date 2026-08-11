@@ -80,6 +80,45 @@ test("复制格式在每条链接之间保留一个空行", () => {
   );
 });
 
+test("标题加链接格式保留视频块之间的空行并兼容缺失标题", () => {
+  const items = [
+    {
+      videoId: "_GPSfzoVvC4",
+      title: "  普通   视频 1  ",
+      url: "https://www.youtube.com/watch?v=_GPSfzoVvC4"
+    },
+    {
+      videoId: "_SpyH8wTA-4",
+      title: "",
+      url: "https://www.youtube.com/watch?v=_SpyH8wTA-4"
+    }
+  ];
+  assert.equal(
+    Core.formatVideoItems(items, "title-link"),
+    "普通 视频 1\r\nhttps://www.youtube.com/watch?v=_GPSfzoVvC4\r\n\r\nhttps://www.youtube.com/watch?v=_SpyH8wTA-4"
+  );
+  assert.equal(Core.normalizeCopyFormat("invalid"), "link");
+});
+
+test("旧批次和新批次都可以按选择的格式输出", () => {
+  const batch = {
+    videoIds: ["_GPSfzoVvC4", "_SpyH8wTA-4"],
+    urls: [
+      "https://www.youtube.com/watch?v=_GPSfzoVvC4",
+      "https://www.youtube.com/watch?v=_SpyH8wTA-4"
+    ],
+    titles: ["视频一", "视频二"]
+  };
+  assert.equal(
+    Core.formatBatch(batch, "title-link"),
+    "视频一\r\nhttps://www.youtube.com/watch?v=_GPSfzoVvC4\r\n\r\n视频二\r\nhttps://www.youtube.com/watch?v=_SpyH8wTA-4"
+  );
+  assert.equal(
+    Core.formatBatch({ urls: batch.urls }, "title-link"),
+    Core.formatLinks(batch.urls)
+  );
+});
+
 test("批次大小只接受本地界面提供的 10、25、50", () => {
   assert.deepEqual(Core.BATCH_SIZE_OPTIONS, [10, 25, 50]);
   assert.equal(Core.normalizeBatchSize(10), 10);
@@ -100,6 +139,24 @@ test("导出链接按已复制 ID 顺序规范化并去重", () => {
     [
       "https://www.youtube.com/watch?v=_GPSfzoVvC4",
       "https://www.youtube.com/watch?v=_SpyH8wTA-4"
+    ]
+  );
+  assert.deepEqual(
+    Core.itemsFromVideoIds(
+      ["_GPSfzoVvC4", "_SpyH8wTA-4"],
+      { "_GPSfzoVvC4": "视频一" }
+    ),
+    [
+      {
+        videoId: "_GPSfzoVvC4",
+        url: "https://www.youtube.com/watch?v=_GPSfzoVvC4",
+        title: "视频一"
+      },
+      {
+        videoId: "_SpyH8wTA-4",
+        url: "https://www.youtube.com/watch?v=_SpyH8wTA-4",
+        title: ""
+      }
     ]
   );
 });
@@ -124,6 +181,7 @@ test("只有匹配的待复制批次才能推进状态并去重", () => {
       batchId: "batch-2",
       batchNumber: 2,
       videoIds: ["_GPSfzoVvC4", "_SpyH8wTA-4"],
+      titles: ["旧标题", "新标题"],
       urls: [],
       exhausted: false
     }
@@ -134,6 +192,10 @@ test("只有匹配的待复制批次才能推进状态并去重", () => {
   assert.equal(committed.status, "copied");
   assert.equal(committed.batchNumber, 2);
   assert.deepEqual(committed.deliveredIds, ["_GPSfzoVvC4", "_SpyH8wTA-4"]);
+  assert.deepEqual(committed.titlesById, {
+    "_GPSfzoVvC4": "旧标题",
+    "_SpyH8wTA-4": "新标题"
+  });
   assert.equal(committed.pendingBatch, null);
   assert.equal(committed.lastBatch.batchId, "batch-2");
 });

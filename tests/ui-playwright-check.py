@@ -34,6 +34,10 @@ def check_static_fixture(browser, console_errors) -> None:
         "25 条",
         "50 条",
     ]
+    assert page.locator(".ytlc-copy-format option").all_text_contents() == [
+        "仅链接",
+        "标题＋链接",
+    ]
     page.locator(".ytlc-batch-size").select_option("25")
     assert page.locator(".ytlc-batch-size").input_value() == "25"
 
@@ -41,7 +45,7 @@ def check_static_fixture(browser, console_errors) -> None:
     page.wait_for_load_state("networkidle")
     preview = page.locator(".ytlc-preview")
     assert preview.is_visible()
-    assert "\n\nhttps://www.youtube.com/watch?v=" in preview.text_content()
+    assert "普通视频 1\nhttps://www.youtube.com/watch?v=" in preview.text_content()
     assert page.locator(".ytlc-preview-toggle").get_attribute("aria-expanded") == "true"
     page.screenshot(path=str(SCREENSHOT), full_page=True)
 
@@ -58,13 +62,21 @@ def check_collector_runtime(browser, console_errors) -> None:
     page.add_init_script(
         script="""
         globalThis.__ytlcStorage = {
-          youtubeLinkCopyUiStateV1: { collapsed: false, batchSize: 25 },
+          youtubeLinkCopyUiStateV1: {
+            collapsed: false,
+            batchSize: 25,
+            copyFormat: "title-link"
+          },
           youtubeLinkCopyPageStateV2: {
             sources: {
               "channel:/@localtest": {
                 status: "copied",
                 batchNumber: 1,
                 deliveredIds: ["_GPSfzoVvC4", "_SpyH8wTA-4"],
+                titlesById: {
+                  "_GPSfzoVvC4": "普通视频 1",
+                  "_SpyH8wTA-4": "普通视频 2"
+                },
                 pendingBatch: null,
                 lastBatch: {
                   batchId: "local-batch-1",
@@ -76,6 +88,7 @@ def check_collector_runtime(browser, console_errors) -> None:
                     "https://www.youtube.com/watch?v=_GPSfzoVvC4",
                     "https://www.youtube.com/watch?v=_SpyH8wTA-4"
                   ],
+                  titles: ["普通视频 1", "普通视频 2"],
                   exhausted: false
                 },
                 pagination: {
@@ -90,6 +103,15 @@ def check_collector_runtime(browser, console_errors) -> None:
             }
           }
         };
+        globalThis.__clipboardText = "";
+        Object.defineProperty(navigator, "clipboard", {
+          configurable: true,
+          value: {
+            async writeText(text) {
+              globalThis.__clipboardText = text;
+            }
+          }
+        });
         globalThis.chrome = {
           storage: {
             local: {
@@ -111,8 +133,13 @@ def check_collector_runtime(browser, console_errors) -> None:
         "**/*",
         lambda route: route.fulfill(
             status=200,
-            content_type="text/html",
-            body="<!doctype html><html><body><main>Local YouTube fixture</main></body></html>",
+            headers={"Content-Type": "text/html; charset=utf-8"},
+            body="""<!doctype html><html><body>
+              <main>Local YouTube fixture</main>
+              <ytd-video-renderer>
+                <h3><a id="video-title" title="当前可见视频" href="/watch?v=2byPP_9F0-Q">当前可见视频</a></h3>
+              </ytd-video-renderer>
+            </body></html>""",
         ),
     )
     page.goto("https://www.youtube.com/@localtest", wait_until="domcontentloaded")
@@ -123,6 +150,7 @@ def check_collector_runtime(browser, console_errors) -> None:
     page.locator("#yt-link-copy-panel:not([hidden])").wait_for()
 
     assert page.locator(".ytlc-batch-size").input_value() == "25"
+    assert page.locator(".ytlc-copy-format").input_value() == "title-link"
     assert "3–27" in page.locator(".ytlc-button-text").text_content()
 
     export_button = page.locator(".ytlc-export")
@@ -137,15 +165,37 @@ def check_collector_runtime(browser, console_errors) -> None:
     )
     download_path = download.path()
     assert download_path is not None
-    assert Path(download_path).read_bytes() == (
-        b"https://www.youtube.com/watch?v=_GPSfzoVvC4\r\n\r\n"
-        b"https://www.youtube.com/watch?v=_SpyH8wTA-4"
+    assert Path(download_path).read_text(encoding="utf-8") == (
+        "普通视频 1\nhttps://www.youtube.com/watch?v=_GPSfzoVvC4\n\n"
+        "普通视频 2\nhttps://www.youtube.com/watch?v=_SpyH8wTA-4"
     )
 
     page.locator(".ytlc-preview-toggle").click()
     preview = page.locator(".ytlc-preview")
     assert preview.is_visible()
     assert "\r\n\r\n" in preview.evaluate("node => node.textContent")
+    assert "普通视频 1\r\nhttps://www.youtube.com/watch?v=" in preview.evaluate(
+        "node => node.textContent"
+    )
+
+    page.locator(".ytlc-copy-format").select_option("link")
+    page.wait_for_function(
+        "globalThis.__ytlcStorage.youtubeLinkCopyUiStateV1.copyFormat === 'link'"
+    )
+    assert "普通视频 1" not in preview.evaluate("node => node.textContent")
+    with page.expect_download() as link_download_info:
+        export_button.click()
+    link_download_path = link_download_info.value.path()
+    assert link_download_path is not None
+    assert Path(link_download_path).read_bytes() == (
+        b"https://www.youtube.com/watch?v=_GPSfzoVvC4\r\n\r\n"
+        b"https://www.youtube.com/watch?v=_SpyH8wTA-4"
+    )
+
+    page.locator(".ytlc-copy-format").select_option("title-link")
+    page.wait_for_function(
+        "globalThis.__ytlcStorage.youtubeLinkCopyUiStateV1.copyFormat === 'title-link'"
+    )
 
     page.locator(".ytlc-batch-size").select_option("10")
     page.wait_for_function(
@@ -153,6 +203,32 @@ def check_collector_runtime(browser, console_errors) -> None:
     )
     assert "3–12" in page.locator(".ytlc-button-text").text_content()
     page.screenshot(path=str(RUNTIME_SCREENSHOT), full_page=True)
+
+    page.evaluate(
+        """
+        const state = globalThis.__ytlcStorage.youtubeLinkCopyPageStateV2
+          .sources["channel:/@localtest"];
+        state.status = "error";
+        state.error = "本地模拟完整读取失败";
+        document.dispatchEvent(new Event("yt-navigate-finish"));
+        """
+    )
+    fallback_button = page.locator(".ytlc-fallback")
+    fallback_button.wait_for(state="visible")
+    fallback_button.click()
+    page.wait_for_function(
+        "globalThis.__ytlcStorage.youtubeLinkCopyPageStateV2.sources"
+        "['channel:/@localtest'].deliveredIds.includes('2byPP_9F0-Q')"
+    )
+    clipboard_text = global_eval(page, "globalThis.__clipboardText")
+    assert clipboard_text == (
+        "当前可见视频\r\nhttps://www.youtube.com/watch?v=2byPP_9F0-Q"
+    ), repr(clipboard_text)
+    assert global_eval(
+        page,
+        "globalThis.__ytlcStorage.youtubeLinkCopyPageStateV2.sources"
+        "['channel:/@localtest'].titlesById['2byPP_9F0-Q']",
+    ) == "当前可见视频"
 
     page.locator(".ytlc-brand").click()
     page.wait_for_function(

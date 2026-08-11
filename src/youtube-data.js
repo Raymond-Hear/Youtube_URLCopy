@@ -129,6 +129,45 @@
     return null;
   }
 
+  function textFromTextObject(value) {
+    if (typeof value === "string") {
+      return value.replace(/\s+/g, " ").trim();
+    }
+    if (!value || typeof value !== "object") {
+      return "";
+    }
+    if (typeof value.simpleText === "string") {
+      return value.simpleText.replace(/\s+/g, " ").trim();
+    }
+    if (Array.isArray(value.runs)) {
+      return value.runs
+        .map((run) => typeof run?.text === "string" ? run.text : "")
+        .join("")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+    if (typeof value.content === "string") {
+      return value.content.replace(/\s+/g, " ").trim();
+    }
+    return "";
+  }
+
+  function rendererTitle(node) {
+    const candidates = [
+      node.title,
+      node.headline,
+      node.metadata?.lockupMetadataViewModel?.title,
+      node.lockupMetadataViewModel?.title
+    ];
+    for (const candidate of candidates) {
+      const title = textFromTextObject(candidate);
+      if (title) {
+        return title;
+      }
+    }
+    return "";
+  }
+
   function rendererIsExcluded(node, inheritedShorts) {
     if (inheritedShorts) {
       return true;
@@ -178,7 +217,7 @@
           !rendererIsExcluded(value, shortsContext)
         ) {
           alreadyFound.add(videoId);
-          items.push({ videoId });
+          items.push({ videoId, title: rendererTitle(value) });
         }
       }
 
@@ -218,7 +257,10 @@
         continue;
       }
       seen.add(videoId);
-      normalized.push({ videoId });
+      normalized.push({
+        videoId,
+        title: textFromTextObject(item?.title)
+      });
     }
     return normalized;
   }

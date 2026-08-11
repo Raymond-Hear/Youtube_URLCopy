@@ -14,6 +14,7 @@
   let currentSource = null;
   let currentUrl = location.href;
   let batchSize = Core.DEFAULT_BATCH_SIZE;
+  let copyFormat = Core.DEFAULT_COPY_FORMAT;
   let busy = false;
   let panel = null;
   let copyButton = null;
@@ -30,6 +31,7 @@
   let previewButton = null;
   let previewBox = null;
   let exportButton = null;
+  let copyFormatSelect = null;
 
   function defaultStore() {
     return { sources: {} };
@@ -41,6 +43,10 @@
     return {
       ...defaults,
       ...state,
+      titlesById: {
+        ...defaults.titlesById,
+        ...(state.titlesById || {})
+      },
       pagination: {
         ...defaults.pagination,
         ...(state.pagination || {})
@@ -73,7 +79,8 @@
     const state = stored[UI_STATE_KEY] || {};
     return {
       collapsed: Boolean(state.collapsed),
-      batchSize: Core.normalizeBatchSize(state.batchSize)
+      batchSize: Core.normalizeBatchSize(state.batchSize),
+      copyFormat: Core.normalizeCopyFormat(state.copyFormat)
     };
   }
 
@@ -82,7 +89,8 @@
     const next = {
       ...current,
       ...patch,
-      batchSize: Core.normalizeBatchSize(patch.batchSize ?? current.batchSize)
+      batchSize: Core.normalizeBatchSize(patch.batchSize ?? current.batchSize),
+      copyFormat: Core.normalizeCopyFormat(patch.copyFormat ?? current.copyFormat)
     };
     await chrome.storage.local.set({ [UI_STATE_KEY]: next });
     return next;
@@ -120,6 +128,22 @@
     }
   }
 
+  async function setCopyFormat(value, persist = true) {
+    if (busy) {
+      return;
+    }
+    copyFormat = Core.normalizeCopyFormat(value);
+    if (copyFormatSelect) {
+      copyFormatSelect.value = copyFormat;
+    }
+    if (persist) {
+      await saveUiState({ copyFormat });
+    }
+    if (currentSource && panel && !panel.hidden) {
+      await renderState(await readSourceState(currentSource.sourceKey));
+    }
+  }
+
   function bindPanelElements() {
     copyButton = panel.querySelector(".ytlc-copy");
     countLabel = panel.querySelector(".ytlc-count");
@@ -135,6 +159,7 @@
     previewButton = panel.querySelector(".ytlc-preview-toggle");
     previewBox = panel.querySelector(".ytlc-preview");
     exportButton = panel.querySelector(".ytlc-export");
+    copyFormatSelect = panel.querySelector(".ytlc-copy-format");
   }
 
   function createPanel() {
@@ -162,12 +187,21 @@
       </div>
       <div class="ytlc-body">
         <div class="ytlc-options">
-          <label for="ytlc-batch-size">每批数量</label>
-          <select id="ytlc-batch-size" class="ytlc-batch-size" aria-label="每批复制数量">
-            <option value="10">10 条</option>
-            <option value="25">25 条</option>
-            <option value="50" selected>50 条</option>
-          </select>
+          <label class="ytlc-option-row" for="ytlc-copy-format">
+            <span>复制格式</span>
+            <select id="ytlc-copy-format" class="ytlc-copy-format" aria-label="复制内容格式">
+              <option value="link" selected>仅链接</option>
+              <option value="title-link">标题＋链接</option>
+            </select>
+          </label>
+          <label class="ytlc-option-row" for="ytlc-batch-size">
+            <span>每批数量</span>
+            <select id="ytlc-batch-size" class="ytlc-batch-size" aria-label="每批复制数量">
+              <option value="10">10 条</option>
+              <option value="25">25 条</option>
+              <option value="50" selected>50 条</option>
+            </select>
+          </label>
         </div>
         <button class="ytlc-copy" type="button">
           <span class="ytlc-button-text">复制第 1 批：1–50</span>
@@ -194,6 +228,9 @@
     fallbackButton.addEventListener("click", () => void copyVisibleFallback());
     batchSizeSelect.addEventListener("change", () =>
       void setBatchSize(batchSizeSelect.value)
+    );
+    copyFormatSelect.addEventListener("change", () =>
+      void setCopyFormat(copyFormatSelect.value)
     );
     collapseButton.addEventListener("click", () =>
       void setCollapsed(panel.dataset.collapsed !== "true")
@@ -264,17 +301,33 @@
     window.setTimeout(() => toast.remove(), 4_000);
   }
 
-  function visibleCardIsExcluded(link) {
-    if (link.closest("ytd-reel-shelf-renderer, yt-horizontal-list-renderer")) {
-      return true;
-    }
-    const card = link.closest([
+  function visibleCardForLink(link) {
+    return link.closest([
       "ytd-rich-item-renderer",
       "ytd-grid-video-renderer",
       "ytd-video-renderer",
       "ytd-playlist-video-renderer",
       "yt-lockup-view-model"
     ].join(",")) || link;
+  }
+
+  function visibleCardTitle(link) {
+    const card = visibleCardForLink(link);
+    const titleNode = card.querySelector([
+      "#video-title",
+      "a[title][href*='/watch?v=']",
+      "h3 a[href*='/watch?v=']"
+    ].join(","));
+    return Core.normalizeVideoTitle(
+      titleNode?.getAttribute("title") || titleNode?.textContent || link.getAttribute("title")
+    );
+  }
+
+  function visibleCardIsExcluded(link) {
+    if (link.closest("ytd-reel-shelf-renderer, yt-horizontal-list-renderer")) {
+      return true;
+    }
+    const card = visibleCardForLink(link);
     const badgeText = Array.from(card.querySelectorAll([
       "[overlay-style]",
       "[badge-style-type]",
@@ -304,7 +357,11 @@
         continue;
       }
       found.add(videoId);
-      items.push({ videoId, url: Core.normalizeWatchUrl(videoId) });
+      items.push({
+        videoId,
+        title: visibleCardTitle(link),
+        url: Core.normalizeWatchUrl(videoId)
+      });
       if (items.length === batchSize) {
         break;
       }
@@ -334,6 +391,7 @@
     previewButton.disabled = busy;
     exportButton.disabled = busy || deliveredCount === 0;
     batchSizeSelect.disabled = busy;
+    copyFormatSelect.disabled = busy;
     fallbackButton.disabled = busy || visibleFallbackCount === 0;
     recopyButton.hidden = !state.lastBatch?.urls?.length;
     previewButton.hidden = !state.lastBatch?.urls?.length;
@@ -342,8 +400,9 @@
     fallbackButton.hidden = state.status !== "error" || Boolean(state.pendingBatch);
     brandBatchSize.textContent = String(batchSize);
     batchSizeSelect.value = String(batchSize);
+    copyFormatSelect.value = copyFormat;
     if (state.lastBatch?.urls?.length) {
-      previewBox.textContent = Core.formatLinks(state.lastBatch.urls);
+      previewBox.textContent = Core.formatBatch(state.lastBatch, copyFormat);
     } else {
       previewBox.textContent = "";
       closePreview();
@@ -476,6 +535,7 @@
       ...result,
       items: result.items.map((item) => ({
         videoId: item.videoId,
+        title: Core.normalizeVideoTitle(item.title),
         url: Core.normalizeWatchUrl(item.videoId)
       })),
       pagination: {
@@ -513,7 +573,7 @@
     if (!batch?.urls?.length) {
       return state;
     }
-    await copyText(Core.formatLinks(batch.urls));
+    await copyText(Core.formatBatch(batch, copyFormat));
     const committed = Core.commitPendingBatch(state, batch.batchId);
     await saveSourceState(source.sourceKey, committed);
     const range = Core.getBatchRange(batch, committed.deliveredIds.length);
@@ -537,7 +597,7 @@
     busy = true;
     await renderState(state);
     try {
-      await copyText(Core.formatLinks(batch.urls));
+      await copyText(Core.formatBatch(batch, copyFormat));
       const range = Core.getBatchRange(batch, state.deliveredIds.length);
       showToast(`已重新复制第 ${batch.batchNumber} 批：${range.start}–${range.end}`, "success");
     } catch (error) {
@@ -553,25 +613,25 @@
       return;
     }
     const state = await readSourceState(currentSource.sourceKey);
-    const urls = Core.urlsFromVideoIds(state.deliveredIds);
-    if (!urls.length) {
+    const items = Core.itemsFromVideoIds(state.deliveredIds, state.titlesById);
+    if (!items.length) {
       showToast("当前来源还没有已复制的链接");
       return;
     }
 
     const blobUrl = URL.createObjectURL(new Blob(
-      [Core.formatLinks(urls)],
+      [Core.formatVideoItems(items, copyFormat)],
       { type: "text/plain;charset=utf-8" }
     ));
     const downloadLink = document.createElement("a");
     downloadLink.href = blobUrl;
-    downloadLink.download = Core.createExportFilename(currentSource, urls.length);
+    downloadLink.download = Core.createExportFilename(currentSource, items.length);
     downloadLink.hidden = true;
     document.body.append(downloadLink);
     downloadLink.click();
     downloadLink.remove();
     window.setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000);
-    showToast(`已导出当前来源的 ${urls.length} 条链接`, "success");
+    showToast(`已导出当前来源的 ${items.length} 条记录`, "success");
   }
 
   async function copyVisibleFallback() {
@@ -593,6 +653,7 @@
       rangeEnd: rangeStart + items.length - 1,
       videoIds: items.map((item) => item.videoId),
       urls: items.map((item) => item.url),
+      titles: items.map((item) => item.title),
       exhausted: false,
       fallback: true,
       createdAt: Date.now()
@@ -636,6 +697,7 @@
     previewButton.disabled = true;
     exportButton.disabled = true;
     batchSizeSelect.disabled = true;
+    copyFormatSelect.disabled = true;
     fallbackButton.disabled = true;
     setButtonLabel("正在读取视频", `0/${requestedBatchSize}`);
     setWidgetStatus("正在读取页面数据，不会滚动或切换页面");
@@ -691,6 +753,7 @@
         rangeEnd: rangeStart + result.items.length - 1,
         videoIds: result.items.map((item) => item.videoId),
         urls: result.items.map((item) => item.url),
+        titles: result.items.map((item) => item.title),
         exhausted: result.exhausted,
         createdAt: Date.now()
       };
@@ -742,6 +805,7 @@
     }
     const uiState = await readUiState();
     await setBatchSize(uiState.batchSize, false);
+    await setCopyFormat(uiState.copyFormat, false);
     await setCollapsed(uiState.collapsed, false);
     panel.hidden = false;
     const state = await readSourceState(currentSource.sourceKey);

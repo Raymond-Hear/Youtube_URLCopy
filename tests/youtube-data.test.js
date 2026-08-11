@@ -37,7 +37,15 @@ test("按页面顺序提取普通视频并排除 Shorts、直播和已复制项"
           items: [{ videoRenderer: { videoId: "35SPFdc1eXY" } }]
         }
       },
-      { lockupViewModel: { contentId: "3y-WiiUaqb4", contentType: "VIDEO" } }
+      {
+        lockupViewModel: {
+          contentId: "3y-WiiUaqb4",
+          contentType: "VIDEO",
+          metadata: {
+            lockupMetadataViewModel: { title: { content: "普通视频 2" } }
+          }
+        }
+      }
     ]
   };
 
@@ -45,9 +53,24 @@ test("按页面顺序提取普通视频并排除 Shorts、直播和已复制项"
     excludedIds: ["_SpyH8wTA-4"]
   });
   assert.deepEqual(
-    result.items.map((item) => item.videoId),
-    ["_GPSfzoVvC4", "3y-WiiUaqb4"]
+    result.items,
+    [
+      { videoId: "_GPSfzoVvC4", title: "普通视频 1" },
+      { videoId: "3y-WiiUaqb4", title: "普通视频 2" }
+    ]
   );
+});
+
+test("标题兼容 runs 文本并压缩多余空白", () => {
+  const payload = {
+    videoRenderer: {
+      videoId: "I4bES-sGzdM",
+      title: { runs: [{ text: "标题 " }, { text: " 片段" }] }
+    }
+  };
+  assert.deepEqual(DataCore.collectPageData(payload).items, [
+    { videoId: "I4bES-sGzdM", title: "标题 片段" }
+  ]);
 });
 
 test("尽力排除带 Streamed 标记的直播回放", () => {
@@ -93,7 +116,10 @@ function videoId(index) {
 
 function pagePayload(start, count, nextToken = null) {
   const contents = Array.from({ length: count }, (_value, offset) => ({
-    videoRenderer: { videoId: videoId(start + offset) }
+    videoRenderer: {
+      videoId: videoId(start + offset),
+      title: { simpleText: `视频 ${start + offset}` }
+    }
   }));
   if (nextToken) {
     contents.push({
@@ -139,6 +165,7 @@ test("分页游标保留未用完的视频，下一批从游标继续", async ()
 
   assert.equal(second.items.length, 25);
   assert.equal(second.items[0].videoId, videoId(51));
+  assert.equal(second.items[0].title, "视频 51");
   assert.equal(second.items.at(-1).videoId, videoId(75));
   assert.equal(second.exhausted, true);
   assert.equal(second.nextContinuation, null);
