@@ -184,8 +184,11 @@ def check_collector_runtime(browser, console_errors) -> None:
     assert "3–27" in page.locator(".ytlc-button-text").text_content()
 
     export_button = page.locator(".ytlc-export")
+    export_csv_button = page.locator(".ytlc-export-csv")
     assert export_button.is_visible()
-    assert export_button.text_content() == "导出已复制 2 条"
+    assert export_button.text_content() == "导出 TXT（2）"
+    assert export_csv_button.is_visible()
+    assert export_csv_button.text_content() == "导出 CSV（2）"
     with page.expect_download() as download_info:
         export_button.click()
     download = download_info.value
@@ -291,7 +294,22 @@ def check_collector_runtime(browser, console_errors) -> None:
     assert "3y-WiiUaqb4" in selected_state["skippedIds"]
     assert selected_state["lastBatch"]["videoIds"] == ["35SPFdc1eXY", "7I50PECz7SU"]
     assert selected_state["lastBatch"]["titles"] == ["候选视频 1", "候选视频 3"]
-    assert export_button.text_content() == "导出已复制 4 条"
+    assert export_button.text_content() == "导出 TXT（4）"
+    assert export_csv_button.text_content() == "导出 CSV（4）"
+    with page.expect_download() as csv_download_info:
+        export_csv_button.click()
+    csv_download = csv_download_info.value
+    assert re.match(
+        r"^YouTube链接-@localtest-4条-\d{4}-\d{2}-\d{2}\.csv$",
+        csv_download.suggested_filename,
+    )
+    csv_download_path = csv_download.path()
+    assert csv_download_path is not None
+    csv_text = Path(csv_download_path).read_text(encoding="utf-8-sig")
+    assert csv_text.startswith("序号,标题,视频ID,链接\n")
+    assert "35SPFdc1eXY" in csv_text
+    assert "7I50PECz7SU" in csv_text
+    assert "3y-WiiUaqb4" not in csv_text
 
     selection_switch.uncheck()
     page.wait_for_function(

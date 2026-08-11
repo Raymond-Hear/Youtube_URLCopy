@@ -54,3 +54,10 @@ test("v1.5 本地预览支持复制前逐条选择并记录跳过项", () => {
   assert.match(collector, /skippedIds/);
   assert.match(styles, /\.ytlc-selection-item/);
 });
+
+test("v1.6 本地预览支持 TXT 与 CSV 两种导出格式", () => {
+  assert.match(collector, /class="ytlc-export-csv"/);
+  assert.match(collector, /Core\.formatCsvItems/);
+  assert.match(collector, /text\/csv;charset=utf-8/);
+  assert.match(collector, /\\uFEFF/);
+});

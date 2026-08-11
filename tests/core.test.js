@@ -169,6 +169,35 @@ test("导出文件名包含来源、数量和日期且移除非法字符", () =>
   );
   assert.match(filename, /^YouTube链接-搜索：AI - Agent-25条-2026-08-12\.txt$/);
   assert.doesNotMatch(filename, /[<>:"/\\|?*]/);
+  assert.equal(
+    Core.createExportFilename(
+      { type: "channel", label: "@creator" },
+      2,
+      new Date(2026, 7, 12),
+      "csv"
+    ),
+    "YouTube链接-@creator-2条-2026-08-12.csv"
+  );
+});
+
+test("CSV 导出包含序号、标题、视频 ID 和标准链接并正确转义", () => {
+  assert.equal(
+    Core.formatCsvItems([
+      {
+        videoId: "_GPSfzoVvC4",
+        title: "标题, \"测试\"",
+        url: "https://www.youtube.com/watch?v=_GPSfzoVvC4"
+      },
+      {
+        videoId: "_SpyH8wTA-4",
+        title: "",
+        url: "https://www.youtube.com/watch?v=_SpyH8wTA-4"
+      }
+    ]),
+    "序号,标题,视频ID,链接\r\n" +
+      "1,\"标题, \"\"测试\"\"\",_GPSfzoVvC4,https://www.youtube.com/watch?v=_GPSfzoVvC4\r\n" +
+      "2,,_SpyH8wTA-4,https://www.youtube.com/watch?v=_SpyH8wTA-4"
+  );
 });
 
 test("只有匹配的待复制批次才能推进状态并去重", () => {

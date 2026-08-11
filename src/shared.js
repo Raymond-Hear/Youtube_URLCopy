@@ -215,7 +215,30 @@
     });
   }
 
-  function createExportFilename(source, count, now = new Date()) {
+  function csvCell(value) {
+    const text = String(value ?? "");
+    return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  }
+
+  function formatCsvItems(items) {
+    const rows = [["序号", "标题", "视频ID", "链接"]];
+    for (const item of Array.isArray(items) ? items : []) {
+      const url = item?.url || normalizeWatchUrl(item?.videoId);
+      if (!url) {
+        continue;
+      }
+      const videoId = item?.videoId || new URL(url).searchParams.get("v") || "";
+      rows.push([
+        rows.length,
+        normalizeVideoTitle(item?.title),
+        videoId,
+        url
+      ]);
+    }
+    return rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
+  }
+
+  function createExportFilename(source, count, now = new Date(), extension = "txt") {
     const date = now instanceof Date && !Number.isNaN(now.getTime()) ? now : new Date();
     const dateStamp = [
       date.getFullYear(),
@@ -230,7 +253,8 @@
       .replace(/^[ .-]+|[ .-]+$/g, "")
       .slice(0, 48) || "来源";
     const safeCount = Number.isInteger(count) && count > 0 ? count : 0;
-    return `YouTube链接-${safeLabel}-${safeCount}条-${dateStamp}.txt`;
+    const safeExtension = extension === "csv" ? "csv" : "txt";
+    return `YouTube链接-${safeLabel}-${safeCount}条-${dateStamp}.${safeExtension}`;
   }
 
   function getBatchRange(batch, deliveredCount, pending = false) {
@@ -338,6 +362,7 @@
     createExportFilename,
     createDefaultSourceState,
     formatBatch,
+    formatCsvItems,
     formatLinks,
     formatVideoItems,
     getBatchRange,

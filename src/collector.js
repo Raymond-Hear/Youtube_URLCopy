@@ -32,6 +32,7 @@
   let previewButton = null;
   let previewBox = null;
   let exportButton = null;
+  let exportCsvButton = null;
   let copyFormatSelect = null;
   let selectionModeInput = null;
   let selectionPanel = null;
@@ -183,6 +184,7 @@
     previewButton = panel.querySelector(".ytlc-preview-toggle");
     previewBox = panel.querySelector(".ytlc-preview");
     exportButton = panel.querySelector(".ytlc-export");
+    exportCsvButton = panel.querySelector(".ytlc-export-csv");
     copyFormatSelect = panel.querySelector(".ytlc-copy-format");
     selectionModeInput = panel.querySelector(".ytlc-selection-mode");
     selectionPanel = panel.querySelector(".ytlc-selection");
@@ -255,7 +257,8 @@
         <div class="ytlc-secondary">
           <button class="ytlc-recopy" type="button" hidden>重新复制上一批</button>
           <button class="ytlc-preview-toggle" type="button" aria-expanded="false" hidden>查看上一批</button>
-          <button class="ytlc-export" type="button" hidden>导出已复制记录</button>
+          <button class="ytlc-export" type="button" hidden>导出 TXT</button>
+          <button class="ytlc-export-csv" type="button" hidden>导出 CSV</button>
           <button class="ytlc-fallback" type="button" hidden>复制当前可见链接</button>
         </div>
         <pre class="ytlc-preview" tabindex="0" hidden></pre>
@@ -268,7 +271,8 @@
     resetButton.addEventListener("click", () => void resetCurrentSource());
     recopyButton.addEventListener("click", () => void recopyLastBatch());
     previewButton.addEventListener("click", togglePreview);
-    exportButton.addEventListener("click", () => void exportDeliveredLinks());
+    exportButton.addEventListener("click", () => void exportDeliveredLinks("txt"));
+    exportCsvButton.addEventListener("click", () => void exportDeliveredLinks("csv"));
     fallbackButton.addEventListener("click", () => void copyVisibleFallback());
     batchSizeSelect.addEventListener("change", () =>
       void setBatchSize(batchSizeSelect.value)
@@ -527,6 +531,7 @@
     recopyButton.disabled = busy;
     previewButton.disabled = busy;
     exportButton.disabled = busy || deliveredCount === 0;
+    exportCsvButton.disabled = busy || deliveredCount === 0;
     batchSizeSelect.disabled = busy;
     copyFormatSelect.disabled = busy;
     selectionModeInput.disabled = busy;
@@ -534,7 +539,9 @@
     recopyButton.hidden = !state.lastBatch?.urls?.length;
     previewButton.hidden = !state.lastBatch?.urls?.length;
     exportButton.hidden = deliveredCount === 0;
-    exportButton.textContent = `导出已复制 ${deliveredCount} 条`;
+    exportCsvButton.hidden = deliveredCount === 0;
+    exportButton.textContent = `导出 TXT（${deliveredCount}）`;
+    exportCsvButton.textContent = `导出 CSV（${deliveredCount}）`;
     fallbackButton.hidden = state.status !== "error" || Boolean(state.pendingBatch);
     brandBatchSize.textContent = String(batchSize);
     batchSizeSelect.value = String(batchSize);
@@ -764,7 +771,7 @@
     }
   }
 
-  async function exportDeliveredLinks() {
+  async function exportDeliveredLinks(exportType = "txt") {
     if (busy || !currentSource) {
       return;
     }
@@ -775,19 +782,28 @@
       return;
     }
 
+    const isCsv = exportType === "csv";
+    const content = isCsv
+      ? `\uFEFF${Core.formatCsvItems(items)}`
+      : Core.formatVideoItems(items, copyFormat);
     const blobUrl = URL.createObjectURL(new Blob(
-      [Core.formatVideoItems(items, copyFormat)],
-      { type: "text/plain;charset=utf-8" }
+      [content],
+      { type: isCsv ? "text/csv;charset=utf-8" : "text/plain;charset=utf-8" }
     ));
     const downloadLink = document.createElement("a");
     downloadLink.href = blobUrl;
-    downloadLink.download = Core.createExportFilename(currentSource, items.length);
+    downloadLink.download = Core.createExportFilename(
+      currentSource,
+      items.length,
+      new Date(),
+      isCsv ? "csv" : "txt"
+    );
     downloadLink.hidden = true;
     document.body.append(downloadLink);
     downloadLink.click();
     downloadLink.remove();
     window.setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000);
-    showToast(`已导出当前来源的 ${items.length} 条记录`, "success");
+    showToast(`已导出当前来源的 ${items.length} 条 ${isCsv ? "CSV" : "TXT"} 记录`, "success");
   }
 
   async function copyVisibleFallback() {
@@ -862,6 +878,7 @@
     recopyButton.disabled = true;
     previewButton.disabled = true;
     exportButton.disabled = true;
+    exportCsvButton.disabled = true;
     batchSizeSelect.disabled = true;
     copyFormatSelect.disabled = true;
     selectionModeInput.disabled = true;
