@@ -107,12 +107,13 @@ npm run check
 
 ## About the Author
 
-Author: Lingfeng (Raymond) — PPT content creator and independent developer.
+Author: Lingfeng (Raymond) — an indie developer who does operations and loves tinkering with AI.
 
 For more, follow:
 
-- WeChat official account "跟我学个P" (search `PPTlearning` on WeChat)
-- Website: [pptlearning.vip](https://pptlearning.vip)
+- WeChat official account: 聆风 (Lingfeng)
+- Xiaohongshu: 聆风的AI笔记 (Lingfeng's AI Notes)
+- Jike (即刻): [LingfengRaymond](https://m.okjike.com/users/322d15cf-9e61-4e85-8c50-e0bd4cd42350)
 - GitHub: [@Raymond-Hear](https://github.com/Raymond-Hear)
 
 ## License

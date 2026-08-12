@@ -107,12 +107,13 @@ npm run check
 
 ## 关于作者
 
-作者：聆风（Raymond）—— PPT 内容创作者、独立开发者。
+作者：聆风（Raymond）—— 做运营、喜欢捣鼓 AI 的独立开发者。
 
 更多内容欢迎关注：
 
-- 公众号「跟我学个P」（微信搜索 `PPTlearning`）
-- 网站 [pptlearning.vip](https://pptlearning.vip)
+- 公众号「聆风」
+- 小红书：聆风的AI笔记
+- 即刻：[聆风Raymond](https://m.okjike.com/users/322d15cf-9e61-4e85-8c50-e0bd4cd42350)
 - GitHub [@Raymond-Hear](https://github.com/Raymond-Hear)
 
 ## 许可证
