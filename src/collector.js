@@ -3,6 +3,7 @@
 
   const Core = globalThis.YTLinkCore;
   const DataCore = globalThis.YTDataCore;
+  const PlatformCore = globalThis.VideoPlatformCore;
   const PAGE_STATE_KEY = "youtubeLinkCopyPageStateV2";
   const UI_STATE_KEY = "youtubeLinkCopyUiStateV1";
   const MAX_CONTINUATION_REQUESTS = 40;
@@ -29,6 +30,7 @@
   let fallbackButton = null;
   let batchSizeSelect = null;
   let brandBatchSize = null;
+  let platformNameLabel = null;
   let previewButton = null;
   let previewBox = null;
   let exportButton = null;
@@ -56,6 +58,10 @@
       titlesById: {
         ...defaults.titlesById,
         ...(state.titlesById || {})
+      },
+      urlsById: {
+        ...defaults.urlsById,
+        ...(state.urlsById || {})
       },
       pagination: {
         ...defaults.pagination,
@@ -181,6 +187,7 @@
     fallbackButton = panel.querySelector(".ytlc-fallback");
     batchSizeSelect = panel.querySelector(".ytlc-batch-size");
     brandBatchSize = panel.querySelector(".ytlc-brand-count");
+    platformNameLabel = panel.querySelector(".ytlc-platform-name");
     previewButton = panel.querySelector(".ytlc-preview-toggle");
     previewBox = panel.querySelector(".ytlc-preview");
     exportButton = panel.querySelector(".ytlc-export");
@@ -204,12 +211,12 @@
     panel = document.createElement("aside");
     panel.id = "yt-link-copy-panel";
     panel.dataset.collapsed = "false";
-    panel.setAttribute("aria-label", "YouTube 视频链接复制工具");
+    panel.setAttribute("aria-label", "多平台视频链接复制工具");
     panel.innerHTML = `
       <div class="ytlc-head">
         <button class="ytlc-brand" type="button" title="展开或收起链接工具">
           <span class="ytlc-mark">▶</span>
-          <span>链接／<span class="ytlc-brand-count">50</span></span>
+          <span><span class="ytlc-platform-name">视频</span>链接／<span class="ytlc-brand-count">50</span></span>
           <span class="ytlc-compact-summary"></span>
         </button>
         <div class="ytlc-head-actions">
@@ -396,6 +403,12 @@
   }
 
   function collectVisibleItems(excludedIds = []) {
+    if (currentSource?.collectionMode === "dom") {
+      const excluded = new Set(excludedIds);
+      return PlatformCore.collectPageItems(document, currentSource)
+        .filter((item) => !excluded.has(item.videoId))
+        .slice(0, batchSize);
+    }
     const excluded = new Set(excludedIds);
     const found = new Set();
     const items = [];
@@ -544,6 +557,7 @@
     exportCsvButton.textContent = `导出 CSV（${deliveredCount}）`;
     fallbackButton.hidden = state.status !== "error" || Boolean(state.pendingBatch);
     brandBatchSize.textContent = String(batchSize);
+    platformNameLabel.textContent = currentSource.platformLabel || "视频";
     batchSizeSelect.value = String(batchSize);
     copyFormatSelect.value = copyFormat;
     selectionModeInput.checked = selectionMode;
@@ -610,6 +624,118 @@
     }
   }
 
+  function waitForPage(ms) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+
+  function findPageScrollContainer() {
+    const documentScroller = document.scrollingElement || document.documentElement;
+    let best = documentScroller;
+    let bestRange = Math.max(0, documentScroller.scrollHeight - documentScroller.clientHeight);
+    for (const element of document.querySelectorAll("main, section, div")) {
+      const range = element.scrollHeight - element.clientHeight;
+      if (range <= Math.max(120, bestRange)) {
+        continue;
+      }
+      const overflowY = getComputedStyle(element).overflowY;
+      if (overflowY === "auto" || overflowY === "scroll") {
+        best = element;
+        bestRange = range;
+      }
+    }
+    return best;
+  }
+
+  function setScrollTop(container, top) {
+    if (container === document.scrollingElement || container === document.documentElement) {
+      window.scrollTo({ top, behavior: "instant" });
+    } else {
+      container.scrollTop = top;
+    }
+  }
+
+  async function collectDomSourceBatch(source, state, targetCount, onProgress) {
+    const excluded = new Set([...(state.deliveredIds || []), ...(state.skippedIds || [])]);
+    const queue = [];
+    const knownIds = new Set(excluded);
+    for (const item of state.pagination?.queuedItems || []) {
+      if (item?.videoId && item?.url && !knownIds.has(item.videoId)) {
+        knownIds.add(item.videoId);
+        queue.push(item);
+      }
+    }
+
+    function scanPage() {
+      let added = 0;
+      for (const item of PlatformCore.collectPageItems(document, source)) {
+        if (!knownIds.has(item.videoId)) {
+          knownIds.add(item.videoId);
+          queue.push(item);
+          added += 1;
+        }
+      }
+      onProgress?.(Math.min(queue.length, targetCount));
+      return added;
+    }
+
+    scanPage();
+    if (source.currentItem) {
+      const items = queue.splice(0, targetCount);
+      return {
+        items,
+        queuedItems: queue,
+        nextContinuation: null,
+        sourceExhausted: true,
+        exhausted: queue.length === 0
+      };
+    }
+
+    const scrollContainer = findPageScrollContainer();
+    const originalScrollTop = scrollContainer.scrollTop;
+    let terminalStalls = 0;
+    let sourceExhausted = false;
+    const deadline = Date.now() + COLLECTION_TIMEOUT_MS;
+    try {
+      setScrollTop(scrollContainer, 0);
+      await waitForPage(350);
+      scanPage();
+      while (queue.length < targetCount && Date.now() < deadline) {
+        const maxScrollTop = Math.max(
+          0,
+          scrollContainer.scrollHeight - scrollContainer.clientHeight
+        );
+        const atEnd = scrollContainer.scrollTop >= maxScrollTop - 4;
+        if (atEnd) {
+          terminalStalls += 1;
+          if (terminalStalls >= 3) {
+            sourceExhausted = true;
+            break;
+          }
+        } else {
+          terminalStalls = 0;
+        }
+        const step = Math.max(640, Math.round(scrollContainer.clientHeight * 0.82));
+        setScrollTop(scrollContainer, Math.min(maxScrollTop, scrollContainer.scrollTop + step));
+        await waitForPage(700);
+        const added = scanPage();
+        if (added) {
+          terminalStalls = 0;
+        }
+      }
+    } finally {
+      setScrollTop(scrollContainer, originalScrollTop);
+    }
+
+    const items = queue.splice(0, targetCount);
+    return {
+      items,
+      queuedItems: queue,
+      nextContinuation: null,
+      sourceExhausted,
+      exhausted: sourceExhausted && queue.length === 0
+    };
+  }
+
   function fetchHeaders(config) {
     const headers = { "Content-Type": "application/json" };
     if (config.clientVersion) {
@@ -662,6 +788,17 @@
   }
 
   async function collectSourceBatch(source, state, targetCount, onProgress) {
+    if (source.collectionMode === "dom") {
+      const result = await collectDomSourceBatch(source, state, targetCount, onProgress);
+      return {
+        ...result,
+        pagination: {
+          cursor: null,
+          queuedItems: result.queuedItems,
+          sourceExhausted: result.sourceExhausted
+        }
+      };
+    }
     const deadline = Date.now() + COLLECTION_TIMEOUT_MS;
     const html = await fetchInitialPage(source);
     const initialData = DataCore.extractInitialData(html);
@@ -776,7 +913,11 @@
       return;
     }
     const state = await readSourceState(currentSource.sourceKey);
-    const items = Core.itemsFromVideoIds(state.deliveredIds, state.titlesById);
+    const items = Core.itemsFromVideoIds(
+      state.deliveredIds,
+      state.titlesById,
+      state.urlsById
+    );
     if (!items.length) {
       showToast("当前来源还没有已复制的链接");
       return;
@@ -865,9 +1006,9 @@
     if (busy) {
       return;
     }
-    const source = Core.classifySource(location.href);
+    const source = Core.classifySource(location.href, document.title);
     if (!source) {
-      showToast("请打开频道、播放列表或搜索结果页后再试");
+      showToast("请打开支持平台的视频列表、博主主页或搜索结果页后再试");
       return;
     }
     currentSource = source;
@@ -884,7 +1025,11 @@
     selectionModeInput.disabled = true;
     fallbackButton.disabled = true;
     setButtonLabel("正在读取视频", `0/${requestedBatchSize}`);
-    setWidgetStatus("正在读取页面数据，不会滚动或切换页面");
+    setWidgetStatus(
+      source.collectionMode === "youtube-data"
+        ? "正在读取页面数据，不会滚动或切换页面"
+        : `正在加载${source.platformLabel}当前列表，完成后会回到原位置`
+    );
     setCompactSummary(`读取 0/${requestedBatchSize}`);
 
     try {
@@ -910,7 +1055,7 @@
       });
       const result = await collectSourceBatch(source, state, requestedBatchSize, (count) => {
         setButtonLabel("正在读取视频", `${count}/${requestedBatchSize}`);
-        setWidgetStatus(`已找到 ${count}/${requestedBatchSize} 条普通视频链接`);
+        setWidgetStatus(`已找到 ${count}/${requestedBatchSize} 条视频链接`);
         setCompactSummary(`读取 ${count}/${requestedBatchSize}`);
       });
 
@@ -990,7 +1135,7 @@
 
   async function syncPage() {
     currentUrl = location.href;
-    currentSource = Core.classifySource(currentUrl);
+    currentSource = Core.classifySource(currentUrl, document.title);
     createPanel();
     panel.hidden = true;
     closePreview();

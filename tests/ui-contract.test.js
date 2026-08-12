@@ -8,6 +8,7 @@ const path = require("node:path");
 const projectRoot = path.resolve(__dirname, "..");
 const collector = fs.readFileSync(path.join(projectRoot, "src/collector.js"), "utf8");
 const styles = fs.readFileSync(path.join(projectRoot, "src/page-button.css"), "utf8");
+const platforms = fs.readFileSync(path.join(projectRoot, "src/platforms.js"), "utf8");
 
 test("页面工具保留 v1.2 的四项 MVP 交互入口", () => {
   assert.match(collector, /youtubeLinkCopyUiStateV1/);
@@ -65,4 +66,15 @@ test("v1.6 本地预览支持 TXT 与 CSV 两种导出格式", () => {
 test("v1.7 的浏览器快捷键仍调用页面主复制动作", () => {
   assert.match(collector, /message\?\.type !== "TRIGGER_PAGE_COPY"/);
   assert.match(collector, /void runCopy\(\)/);
+});
+
+test("v2.0 为 B站、抖音和小红书复用完整批次流程", () => {
+  assert.match(platforms, /collectBilibiliItems/);
+  assert.match(platforms, /collectDouyinItems/);
+  assert.match(platforms, /collectXiaohongshuItems/);
+  assert.match(platforms, /xsec_token/);
+  assert.match(collector, /collectDomSourceBatch/);
+  assert.match(collector, /source\.collectionMode === "dom"/);
+  assert.match(collector, /state\.urlsById/);
+  assert.match(collector, /ytlc-platform-name/);
 });

@@ -49,7 +49,7 @@ function loadBackground(activeTab = {
   return { actionListener, commandListener, queryCalls, messages };
 }
 
-test("快捷键触发当前 YouTube 标签中的页面复制流程", async () => {
+test("快捷键触发当前支持平台标签中的页面复制流程", async () => {
   const runtime = loadBackground();
   await runtime.commandListener("copy-next-batch");
   assert.equal(runtime.queryCalls.length, 1);
@@ -60,10 +60,23 @@ test("快捷键触发当前 YouTube 标签中的页面复制流程", async () =>
   assert.equal(runtime.messages[0].message.type, "TRIGGER_PAGE_COPY");
 });
 
-test("快捷键不会在非 YouTube 页面发送复制消息", async () => {
+test("快捷键不会在非支持页面发送复制消息", async () => {
   const runtime = loadBackground({ id: 7, url: "https://example.com/" });
   await runtime.commandListener("copy-next-batch");
   assert.deepEqual(runtime.messages, []);
+});
+
+test("B站、抖音和小红书都能接收快捷键复制消息", async () => {
+  for (const url of [
+    "https://space.bilibili.com/12345/video",
+    "https://www.douyin.com/jingxuan",
+    "https://www.xiaohongshu.com/explore"
+  ]) {
+    const runtime = loadBackground({ id: 8, url });
+    await runtime.commandListener("copy-next-batch");
+    assert.equal(runtime.messages.length, 1, url);
+    assert.equal(runtime.messages[0].message.type, "TRIGGER_PAGE_COPY");
+  }
 });
 
 test("忽略扩展中的其他命令", async () => {

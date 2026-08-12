@@ -1,18 +1,28 @@
 "use strict";
 
 const COPY_COMMAND = "copy-next-batch";
+const SUPPORTED_HOSTS = new Set([
+  "www.youtube.com",
+  "youtube.com",
+  "www.bilibili.com",
+  "space.bilibili.com",
+  "search.bilibili.com",
+  "www.douyin.com",
+  "douyin.com",
+  "www.xiaohongshu.com",
+  "xiaohongshu.com"
+]);
 
 async function triggerPageCopy(tab) {
-  let isYouTubePage = false;
+  let isSupportedPage = false;
   try {
     const url = new URL(tab.url || "");
-    isYouTubePage = url.protocol === "https:" &&
-      ["www.youtube.com", "youtube.com"].includes(url.hostname);
+    isSupportedPage = url.protocol === "https:" && SUPPORTED_HOSTS.has(url.hostname);
   } catch (_error) {
-    isYouTubePage = false;
+    isSupportedPage = false;
   }
 
-  if (!tab.id || !isYouTubePage) {
+  if (!tab.id || !isSupportedPage) {
     return;
   }
 

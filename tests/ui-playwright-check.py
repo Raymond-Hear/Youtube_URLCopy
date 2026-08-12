@@ -10,6 +10,7 @@ SCREENSHOT = ROOT / ".artifacts" / "phase-2-preview.png"
 RUNTIME_SCREENSHOT = ROOT / ".artifacts" / "phase-2-runtime.png"
 SELECTION_SCREENSHOT = ROOT / ".artifacts" / "phase-2-selection.png"
 COLLAPSED_SCREENSHOT = ROOT / ".artifacts" / "phase-2-collapsed.png"
+MULTI_PLATFORM_SCREENSHOT = ROOT / ".artifacts" / "phase-3-xiaohongshu.png"
 EDGE = Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
 
 
@@ -175,6 +176,7 @@ def check_collector_runtime(browser, console_errors) -> None:
     page.goto("https://www.youtube.com/@localtest", wait_until="domcontentloaded")
     page.add_style_tag(path=str(ROOT / "src" / "page-button.css"))
     page.add_script_tag(path=str(ROOT / "src" / "shared.js"))
+    page.add_script_tag(path=str(ROOT / "src" / "platforms.js"))
     page.add_script_tag(path=str(ROOT / "src" / "youtube-data.js"))
     page.add_script_tag(path=str(ROOT / "src" / "collector.js"))
     page.locator("#yt-link-copy-panel:not([hidden])").wait_for()
@@ -262,6 +264,7 @@ def check_collector_runtime(browser, console_errors) -> None:
     page.reload(wait_until="domcontentloaded")
     page.add_style_tag(path=str(ROOT / "src" / "page-button.css"))
     page.add_script_tag(path=str(ROOT / "src" / "shared.js"))
+    page.add_script_tag(path=str(ROOT / "src" / "platforms.js"))
     page.add_script_tag(path=str(ROOT / "src" / "youtube-data.js"))
     page.add_script_tag(path=str(ROOT / "src" / "collector.js"))
     page.locator("#yt-link-copy-panel:not([hidden])").wait_for()
@@ -351,6 +354,220 @@ def check_collector_runtime(browser, console_errors) -> None:
     page.close()
 
 
+def platform_runtime_init_script() -> str:
+    return """
+      globalThis.__ytlcStorage = {};
+      globalThis.__clipboardText = "";
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          async writeText(text) {
+            globalThis.__clipboardText = text;
+          }
+        }
+      });
+      globalThis.chrome = {
+        storage: {
+          local: {
+            async get(key) {
+              return { [key]: globalThis.__ytlcStorage[key] };
+            },
+            async set(values) {
+              Object.assign(globalThis.__ytlcStorage, values);
+            }
+          }
+        },
+        runtime: { onMessage: { addListener() {} } }
+      };
+    """
+
+
+def platform_cards(platform: str) -> tuple[str, list[str], list[str]]:
+    if platform == "bilibili":
+        ids = [f"BV1ZTu96zEw{index}" for index in range(10)]
+        titles = [f"B站视频 {index + 1}" for index in range(10)]
+        cards = "".join(
+            f'''<div class="video-card">
+              <a href="/video/{video_id}?spm_id_from=333"><img alt="{title}"></a>
+              <p class="video-name" title="{title}">{title}</p>
+            </div>'''
+            for video_id, title in zip(ids, titles)
+        )
+        return cards, ids, titles
+    if platform == "douyin":
+        ids = [f"76709904611290924{index:02d}" for index in range(10)]
+        titles = [f"抖音视频 {index + 1}" for index in range(10)]
+        cards = "".join(
+            f'''<div class="discover-video-card-item" data-aweme-id="{video_id}">
+              <div href="//www.douyin.com/video/{video_id}"><img alt="{title}"></div>
+            </div>'''
+            for video_id, title in zip(ids, titles)
+        )
+        return cards, ids, titles
+
+    ids = [f"6a694c980000000009035a{index:02x}" for index in range(10)]
+    titles = [f"小红书视频 {index + 1}" for index in range(10)]
+    image_note = '''<section class="note-item">
+      <a class="cover" href="/explore/6a705c86000000003300e213?xsec_token=image%3D"></a>
+      <a class="title">这是一篇图文笔记</a>
+    </section>'''
+    cards = image_note + "".join(
+        f'''<section class="note-item">
+          <a class="cover" href="/explore/{video_id}?xsec_token=token{index}%3D&amp;xsec_source=pc_feed">
+            <span class="play-icon"></span>
+          </a>
+          <a class="title">{title}</a>
+        </section>'''
+        for index, (video_id, title) in enumerate(zip(ids, titles))
+    )
+    return cards, ids, titles
+
+
+def check_dom_platform_runtime(browser, console_errors) -> None:
+    cases = [
+        {
+            "platform": "bilibili",
+            "label": "B站",
+            "url": "https://www.bilibili.com/v/popular/all",
+            "source_key": "bilibili:www.bilibili.com/v/popular/all",
+        },
+        {
+            "platform": "douyin",
+            "label": "抖音",
+            "url": "https://www.douyin.com/jingxuan",
+            "source_key": "douyin:www.douyin.com/jingxuan",
+        },
+        {
+            "platform": "xiaohongshu",
+            "label": "小红书",
+            "url": "https://www.xiaohongshu.com/explore",
+            "source_key": "xiaohongshu:www.xiaohongshu.com/explore",
+        },
+    ]
+
+    for case in cases:
+        cards, expected_ids, titles = platform_cards(case["platform"])
+        page = browser.new_page(viewport={"width": 1280, "height": 800})
+        watch_console_errors(page, console_errors)
+        page.add_init_script(script=platform_runtime_init_script())
+        def handle_platform_route(route) -> None:
+            route.fulfill(
+                status=200,
+                headers={"Content-Type": "text/html; charset=utf-8"},
+                body=f"<!doctype html><html><head><title>{case['label']}本地列表</title></head>"
+                     f"<body><main>{cards}</main></body></html>",
+            )
+        page.route("**/*", handle_platform_route)
+        page.goto(case["url"], wait_until="domcontentloaded")
+        page.add_style_tag(path=str(ROOT / "src" / "page-button.css"))
+        page.add_script_tag(path=str(ROOT / "src" / "shared.js"))
+        page.add_script_tag(path=str(ROOT / "src" / "platforms.js"))
+        page.add_script_tag(path=str(ROOT / "src" / "youtube-data.js"))
+        page.add_script_tag(path=str(ROOT / "src" / "collector.js"))
+        page.locator("#yt-link-copy-panel:not([hidden])").wait_for()
+        page.locator(".ytlc-copy-format").select_option("title-link")
+        page.locator(".ytlc-batch-size").select_option("10")
+        expected_delivered = expected_ids
+        if case["platform"] == "bilibili":
+            page.locator(".ytlc-selection-mode").check()
+            page.locator(".ytlc-copy").click()
+            page.locator(".ytlc-selection").wait_for(state="visible")
+            assert page.locator(".ytlc-selection-item input:checked").count() == 10
+            page.locator(".ytlc-selection-item input").nth(1).uncheck()
+            page.wait_for_function(
+                "Object.values(globalThis.__ytlcStorage.youtubeLinkCopyPageStateV2.sources)"
+                "[0].pendingBatch.selectedVideoIds.length === 9"
+            )
+            page.locator(".ytlc-copy").click()
+            expected_delivered = expected_ids[:1] + expected_ids[2:]
+        else:
+            page.locator(".ytlc-copy").click()
+        source_expression = (
+            "globalThis.__ytlcStorage.youtubeLinkCopyPageStateV2.sources"
+            f"[{case['source_key']!r}]"
+        )
+        try:
+            page.wait_for_function(
+                f"{source_expression}.deliveredIds.length === {len(expected_delivered)}",
+                timeout=12_000,
+            )
+        except Exception as error:
+            debug_state = global_eval(page, "globalThis.__ytlcStorage")
+            debug_status = page.locator(".ytlc-status").text_content()
+            debug_dom = global_eval(
+                page,
+                "({title: document.title, hrefs: [...document.querySelectorAll('[href]')]"
+                ".slice(0, 12).map(node => node.getAttribute('href')), "
+                "source: YTLinkCore.classifySource(location.href, document.title), "
+                "items: VideoPlatformCore.collectPageItems(document, "
+                "YTLinkCore.classifySource(location.href, document.title))})",
+            )
+            raise AssertionError(
+                f"{case['platform']} 未完成预期数量复制；status={debug_status!r}; "
+                f"storage={debug_state!r}; dom={debug_dom!r}"
+            ) from error
+        state = global_eval(page, source_expression)
+        assert state["deliveredIds"] == expected_delivered
+        assert list(state["urlsById"].keys()) == expected_delivered
+        assert page.locator(".ytlc-platform-name").text_content() == case["label"]
+        clipboard_text = global_eval(page, "globalThis.__clipboardText")
+        assert clipboard_text.startswith(titles[0] + "\r\n")
+        assert state["urlsById"][expected_ids[0]] in clipboard_text
+
+        if case["platform"] == "bilibili":
+            assert state["skippedIds"] == [expected_ids[1]]
+            assert f"https://www.bilibili.com/video/{expected_ids[1]}" not in clipboard_text
+
+        if case["platform"] == "xiaohongshu":
+            assert "6a705c86000000003300e213" not in state["deliveredIds"]
+            assert "xsec_token=token0%3D" in state["urlsById"][expected_ids[0]]
+            page.screenshot(path=str(MULTI_PLATFORM_SCREENSHOT), full_page=True)
+
+        export_csv_button = page.locator(".ytlc-export-csv")
+        with page.expect_download() as download_info:
+            export_csv_button.click()
+        download = download_info.value
+        assert download.suggested_filename.startswith(f"{case['label']}链接-")
+        download_path = download.path()
+        assert download_path is not None
+        csv_text = Path(download_path).read_text(encoding="utf-8-sig")
+        assert state["urlsById"][expected_ids[0]] in csv_text
+        page.close()
+
+    image_page = browser.new_page(viewport={"width": 1280, "height": 800})
+    watch_console_errors(image_page, console_errors)
+    image_page.add_init_script(script=platform_runtime_init_script())
+    image_page.route(
+        "**/*",
+        lambda route: route.fulfill(
+            status=200,
+            headers={"Content-Type": "text/html; charset=utf-8"},
+            body="<!doctype html><html><head><title>普通图文 - 小红书</title></head>"
+                 "<body><main><h1>这是一篇普通图文笔记</h1></main></body></html>",
+        ),
+    )
+    image_page.goto(
+        "https://www.xiaohongshu.com/explore/6a705c86000000003300e213"
+        "?xsec_token=image%3D&xsec_source=pc_feed",
+        wait_until="domcontentloaded",
+    )
+    image_page.add_style_tag(path=str(ROOT / "src" / "page-button.css"))
+    image_page.add_script_tag(path=str(ROOT / "src" / "shared.js"))
+    image_page.add_script_tag(path=str(ROOT / "src" / "platforms.js"))
+    image_page.add_script_tag(path=str(ROOT / "src" / "youtube-data.js"))
+    image_page.add_script_tag(path=str(ROOT / "src" / "collector.js"))
+    image_page.locator("#yt-link-copy-panel:not([hidden])").wait_for()
+    image_page.locator(".ytlc-copy").click()
+    image_source = (
+        "globalThis.__ytlcStorage.youtubeLinkCopyPageStateV2.sources"
+        "['xiaohongshu:note:6a705c86000000003300e213']"
+    )
+    image_page.wait_for_function(f"{image_source}.exhausted === true")
+    assert global_eval(image_page, f"{image_source}.deliveredIds") == []
+    assert global_eval(image_page, "globalThis.__clipboardText") == ""
+    image_page.close()
+
+
 def global_eval(page, expression):
     return page.evaluate(expression)
 
@@ -366,6 +583,7 @@ def main() -> None:
         )
         check_static_fixture(browser, console_errors)
         check_collector_runtime(browser, console_errors)
+        check_dom_platform_runtime(browser, console_errors)
         browser.close()
 
     assert not console_errors, f"浏览器控制台错误：{console_errors}"
@@ -373,6 +591,7 @@ def main() -> None:
         "UI_CHECK=passed "
         f"static_screenshot={SCREENSHOT} runtime_screenshot={RUNTIME_SCREENSHOT} "
         f"selection_screenshot={SELECTION_SCREENSHOT} "
+        f"multi_platform_screenshot={MULTI_PLATFORM_SCREENSHOT} "
         f"collapsed_screenshot={COLLAPSED_SCREENSHOT}"
     )
 

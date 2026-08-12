@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
-  <title id="title">YouTube 链接分批复制</title>
-  <desc id="desc">红色圆角方形中叠放两张视频卡片，表示复制 YouTube 视频链接。</desc>
+  <title id="title">多平台视频链接分批复制</title>
+  <desc id="desc">红色圆角方形中叠放两张视频卡片，表示跨平台复制视频链接。</desc>
   <rect x="6" y="6" width="116" height="116" rx="28" fill="#E52D27"/>
   <rect x="27" y="24" width="69" height="68" rx="15" fill="none" stroke="#FFFFFF" stroke-width="10" opacity="0.6"/>
   <rect x="37" y="36" width="70" height="70" rx="16" fill="#FFFFFF"/>

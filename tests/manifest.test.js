@@ -14,7 +14,10 @@ test("清单使用 Manifest V3 和最小业务权限", () => {
   assert.equal(manifest.manifest_version, 3);
   assert.equal(manifest.version, packageJson.version);
   assert.deepEqual(manifest.permissions.sort(), ["clipboardWrite", "storage"]);
-  assert.ok(manifest.host_permissions.every((pattern) => pattern.includes("youtube.com")));
+  const permissionText = manifest.host_permissions.join("\n");
+  for (const domain of ["youtube.com", "bilibili.com", "douyin.com", "xiaohongshu.com"]) {
+    assert.match(permissionText, new RegExp(domain.replace(".", "\\.")));
+  }
 });
 
 test("清单引用的扩展文件全部存在", () => {
@@ -61,6 +64,7 @@ test("工具栏和页面按钮共用内容脚本且不再打开弹窗", () => {
   assert.equal(manifest.action.default_popup, undefined);
   const scripts = manifest.content_scripts.flatMap((entry) => entry.js || []);
   assert.ok(scripts.includes("src/collector.js"));
+  assert.ok(scripts.includes("src/platforms.js"));
   assert.ok(scripts.includes("src/youtube-data.js"));
   const background = fs.readFileSync(path.join(projectRoot, "src/background.js"), "utf8");
   assert.doesNotMatch(background, /chrome\.tabs\.create/);
@@ -69,7 +73,7 @@ test("工具栏和页面按钮共用内容脚本且不再打开弹窗", () => {
 test("快捷键复用页面复制流程且不增加权限", () => {
   assert.deepEqual(manifest.commands["copy-next-batch"], {
     suggested_key: { default: "Alt+Shift+Y" },
-    description: "复制或确认下一批 YouTube 视频链接"
+    description: "复制或确认当前平台的下一批视频链接"
   });
   const background = fs.readFileSync(path.join(projectRoot, "src/background.js"), "utf8");
   assert.match(background, /chrome\.commands\.onCommand/);

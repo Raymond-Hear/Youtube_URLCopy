@@ -1,15 +1,22 @@
 {
   "manifest_version": 3,
-  "name": "YouTube 链接分批复制",
-  "version": "1.7.0",
-  "description": "在 YouTube 页面内分批复制视频链接，可逐条选择、导出清单或使用快捷键操作。",
+  "name": "多平台视频链接分批复制",
+  "version": "2.0.0",
+  "description": "在 YouTube、B站、抖音和小红书页面内分批复制视频链接，并支持选择与导出。",
   "permissions": [
     "storage",
     "clipboardWrite"
   ],
   "host_permissions": [
     "https://www.youtube.com/*",
-    "https://youtube.com/*"
+    "https://youtube.com/*",
+    "https://www.bilibili.com/*",
+    "https://space.bilibili.com/*",
+    "https://search.bilibili.com/*",
+    "https://www.douyin.com/*",
+    "https://douyin.com/*",
+    "https://www.xiaohongshu.com/*",
+    "https://xiaohongshu.com/*"
   ],
   "background": {
     "service_worker": "src/background.js"
@@ -21,7 +28,7 @@
     "128": "assets/icon-128.png"
   },
   "action": {
-    "default_title": "复制下一批 YouTube 视频链接",
+    "default_title": "复制下一批视频链接",
     "default_icon": {
       "16": "assets/icon-16.png",
       "32": "assets/icon-32.png",
@@ -34,17 +41,25 @@
       "suggested_key": {
         "default": "Alt+Shift+Y"
       },
-      "description": "复制或确认下一批 YouTube 视频链接"
+      "description": "复制或确认当前平台的下一批视频链接"
     }
   },
   "content_scripts": [
     {
       "matches": [
         "https://www.youtube.com/*",
-        "https://youtube.com/*"
+        "https://youtube.com/*",
+        "https://www.bilibili.com/*",
+        "https://space.bilibili.com/*",
+        "https://search.bilibili.com/*",
+        "https://www.douyin.com/*",
+        "https://douyin.com/*",
+        "https://www.xiaohongshu.com/*",
+        "https://xiaohongshu.com/*"
       ],
       "js": [
         "src/shared.js",
+        "src/platforms.js",
         "src/youtube-data.js",
         "src/collector.js"
       ],

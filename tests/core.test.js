@@ -8,6 +8,9 @@ test("识别频道首页并转换为视频采集页", () => {
   assert.deepEqual(
     Core.classifySource("https://www.youtube.com/@examplecreator"),
     {
+      platform: "youtube",
+      platformLabel: "YouTube",
+      collectionMode: "youtube-data",
       type: "channel",
       sourceKey: "channel:/@examplecreator",
       collectorUrl: "https://www.youtube.com/@examplecreator/videos",
@@ -27,6 +30,9 @@ test("识别播放列表并删除无关参数", () => {
   assert.deepEqual(
     Core.classifySource("https://www.youtube.com/playlist?list=PLabc123&index=7&si=tracking"),
     {
+      platform: "youtube",
+      platformLabel: "YouTube",
+      collectionMode: "youtube-data",
       type: "playlist",
       sourceKey: "playlist:PLabc123",
       collectorUrl: "https://www.youtube.com/playlist?list=PLabc123",
@@ -51,6 +57,58 @@ test("拒绝非支持页面", () => {
   assert.equal(Core.classifySource("https://www.youtube.com/watch?v=_GPSfzoVvC4"), null);
   assert.equal(Core.classifySource("https://m.youtube.com/@creator"), null);
   assert.equal(Core.classifySource("https://example.com/@creator"), null);
+});
+
+test("识别 B站博主、搜索页和单个视频", () => {
+  const creator = Core.classifySource("https://space.bilibili.com/12345/video?spm_id_from=333");
+  assert.equal(creator.platform, "bilibili");
+  assert.equal(creator.sourceKey, "bilibili:space:12345");
+  assert.equal(creator.collectionMode, "dom");
+
+  const search = Core.classifySource("https://search.bilibili.com/all?keyword=AI&page=2");
+  assert.equal(search.sourceKey, "bilibili:search.bilibili.com/all?keyword=AI");
+
+  const video = Core.classifySource("https://www.bilibili.com/video/BV1ZTu96zEwg?p=2");
+  assert.deepEqual(video.currentItem, {
+    videoId: "BV1ZTu96zEwg",
+    url: "https://www.bilibili.com/video/BV1ZTu96zEwg"
+  });
+});
+
+test("识别抖音博主、搜索页和单个视频", () => {
+  const creator = Core.classifySource(
+    "https://www.douyin.com/user/MS4wLjAB?showTab=post&from_tab_name=main"
+  );
+  assert.equal(creator.sourceKey, "douyin:user:MS4wLjAB:post");
+  assert.equal(creator.platformLabel, "抖音");
+
+  const search = Core.classifySource("https://www.douyin.com/search/AI?type=video&from_nav=1");
+  assert.equal(search.sourceKey, "douyin:www.douyin.com/search/AI?type=video");
+
+  const video = Core.classifySource("https://www.douyin.com/video/7670990461129092435");
+  assert.equal(video.currentItem.url, "https://www.douyin.com/video/7670990461129092435");
+});
+
+test("识别小红书博主、搜索页并为视频笔记保留访问参数", () => {
+  const creator = Core.classifySource(
+    "https://www.xiaohongshu.com/user/profile/abc?xsec_token=secret"
+  );
+  assert.equal(creator.sourceKey, "xiaohongshu:profile:abc");
+
+  const search = Core.classifySource(
+    "https://www.xiaohongshu.com/search_result?keyword=AI&source=web_search_result_notes"
+  );
+  assert.equal(search.sourceKey, "xiaohongshu:www.xiaohongshu.com/search_result?keyword=AI");
+
+  const note = Core.classifySource(
+    "https://www.xiaohongshu.com/explore/6a694c980000000009035ab9" +
+      "?xsec_token=abc%3D&xsec_source=pc_feed"
+  );
+  assert.equal(
+    note.currentItem.url,
+    "https://www.xiaohongshu.com/explore/6a694c980000000009035ab9" +
+      "?xsec_token=abc%3D&xsec_source=pc_feed"
+  );
 });
 
 test("只从 watch 链接提取合法视频 ID", () => {
@@ -163,7 +221,7 @@ test("导出链接按已复制 ID 顺序规范化并去重", () => {
 
 test("导出文件名包含来源、数量和日期且移除非法字符", () => {
   const filename = Core.createExportFilename(
-    { type: "search", label: "搜索：AI / Agent?" },
+    { type: "search", platformLabel: "YouTube", label: "搜索：AI / Agent?" },
     25,
     new Date(2026, 7, 12)
   );
@@ -171,12 +229,21 @@ test("导出文件名包含来源、数量和日期且移除非法字符", () =>
   assert.doesNotMatch(filename, /[<>:"/\\|?*]/);
   assert.equal(
     Core.createExportFilename(
-      { type: "channel", label: "@creator" },
+      { type: "channel", platformLabel: "YouTube", label: "@creator" },
       2,
       new Date(2026, 7, 12),
       "csv"
     ),
     "YouTube链接-@creator-2条-2026-08-12.csv"
+  );
+  assert.equal(
+    Core.createExportFilename(
+      { type: "creator", platformLabel: "B站", label: "测试UP主" },
+      10,
+      new Date(2026, 7, 12),
+      "txt"
+    ),
+    "B站链接-测试UP主-10条-2026-08-12.txt"
   );
 });
 
@@ -256,6 +323,10 @@ test("复制前选择只提交勾选项并把取消项记为跳过", () => {
     "35SPFdc1eXY"
   ]);
   assert.deepEqual(committed.skippedIds, ["2byPP_9F0-Q"]);
+  assert.deepEqual(committed.urlsById, {
+    "_SpyH8wTA-4": "https://www.youtube.com/watch?v=_SpyH8wTA-4",
+    "35SPFdc1eXY": "https://www.youtube.com/watch?v=35SPFdc1eXY"
+  });
   assert.deepEqual(committed.lastBatch.videoIds, ["_SpyH8wTA-4", "35SPFdc1eXY"]);
   assert.deepEqual(committed.lastBatch.titles, ["保留 1", "保留 2"]);
   assert.deepEqual(
@@ -290,6 +361,7 @@ test("新来源默认包含可恢复的分页状态", () => {
     sourceExhausted: false
   });
   assert.deepEqual(state.skippedIds, []);
+  assert.deepEqual(state.urlsById, {});
 });
 
 test("批次范围兼容新批次字段和旧版本批次", () => {
