@@ -111,8 +111,8 @@ Author: Lingfeng (Raymond) — an indie developer who does operations and loves 
 
 For more, follow:
 
-- WeChat official account: 聆风 (Lingfeng)
-- Xiaohongshu: 聆风的AI笔记 (Lingfeng's AI Notes)
+- WeChat official account: 聆风Raymond (Lingfeng Raymond)
+- Xiaohongshu: [聆风的AI笔记](https://www.xiaohongshu.com/user/profile/62fc5b98000000001200d7c4) (Lingfeng's AI Notes)
 - Jike (即刻): [LingfengRaymond](https://m.okjike.com/users/322d15cf-9e61-4e85-8c50-e0bd4cd42350)
 - GitHub: [@Raymond-Hear](https://github.com/Raymond-Hear)
 

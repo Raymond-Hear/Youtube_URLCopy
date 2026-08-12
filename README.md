@@ -111,8 +111,8 @@ npm run check
 
 更多内容欢迎关注：
 
-- 公众号「聆风」
-- 小红书：聆风的AI笔记
+- 公众号「聆风Raymond」
+- 小红书：[聆风的AI笔记](https://www.xiaohongshu.com/user/profile/62fc5b98000000001200d7c4)
 - 即刻：[聆风Raymond](https://m.okjike.com/users/322d15cf-9e61-4e85-8c50-e0bd4cd42350)
 - GitHub [@Raymond-Hear](https://github.com/Raymond-Hear)
 
