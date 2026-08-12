@@ -1,5 +1,10 @@
 ﻿# 多平台视频链接分批复制
 
+[English](README.en.md) · 简体中文
+
+![License](https://img.shields.io/badge/License-MIT-blue.svg)
+![Version](https://img.shields.io/badge/version-2.0.0-green.svg)
+
 一个本地运行的 Microsoft Edge 扩展。它会直接在 YouTube、B站、抖音和小红书页面右上角放置链接复制工具，支持分批复制、复制前选择、标题＋链接、TXT/CSV 导出与快捷键。
 
 ## 2.0 本地预览版
@@ -99,3 +104,17 @@ npm run check
 ```
 
 `test:ui` 会用本机 Edge 打开完全本地的四平台模拟页面，验证平台筛选、批次选择、逐条取消、剪贴板、CSV 导出和折叠状态，并把截图保存到被 Git 忽略的 `.artifacts` 文件夹。
+
+## 关于作者
+
+作者：聆风（Raymond）—— PPT 内容创作者、独立开发者。
+
+更多内容欢迎关注：
+
+- 公众号「跟我学个P」（微信搜索 `PPTlearning`）
+- 网站 [pptlearning.vip](https://pptlearning.vip)
+- GitHub [@Raymond-Hear](https://github.com/Raymond-Hear)
+
+## 许可证
+
+本项目采用 [MIT License](LICENSE) 开源协议。
