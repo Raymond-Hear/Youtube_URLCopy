@@ -107,7 +107,7 @@ npm run check
 
 ## About the Author
 
-Author: Lingfeng (Raymond) — an indie developer who does operations and loves tinkering with AI.
+Author: Lingfeng (Raymond) — an operations person who loves tinkering with AI.
 
 For more, follow:
 
