@@ -78,3 +78,11 @@ test("v2.0 为 B站、抖音和小红书复用完整批次流程", () => {
   assert.match(collector, /state\.urlsById/);
   assert.match(collector, /ytlc-platform-name/);
 });
+
+test("页面工具提供安全的新标签 GitHub 项目入口", () => {
+  assert.match(collector, /https:\/\/github\.com\/Raymond-Hear\/Youtube_URLCopy/);
+  assert.match(collector, /class="ytlc-github"/);
+  assert.match(collector, /target="_blank"/);
+  assert.match(collector, /rel="noopener noreferrer"/);
+  assert.match(styles, /\.ytlc-github/);
+});

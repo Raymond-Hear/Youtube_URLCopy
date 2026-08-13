@@ -31,6 +31,13 @@ def check_static_fixture(browser, console_errors) -> None:
     page.wait_for_load_state("networkidle")
     panel = page.locator("#yt-link-copy-panel")
     assert panel.is_visible()
+    github_link = page.locator(".ytlc-github")
+    assert github_link.is_visible()
+    assert github_link.get_attribute("href") == (
+        "https://github.com/Raymond-Hear/Youtube_URLCopy"
+    )
+    assert github_link.get_attribute("target") == "_blank"
+    assert github_link.get_attribute("rel") == "noopener noreferrer"
     assert page.locator(".ytlc-batch-size option").all_text_contents() == [
         "10 条",
         "25 条",
@@ -63,6 +70,7 @@ def check_static_fixture(browser, console_errors) -> None:
     page.wait_for_load_state("networkidle")
     assert page.locator(".ytlc-body").is_hidden()
     assert page.locator(".ytlc-brand").is_visible()
+    assert page.locator(".ytlc-github").is_visible()
     page.close()
 
 
@@ -180,6 +188,12 @@ def check_collector_runtime(browser, console_errors) -> None:
     page.add_script_tag(path=str(ROOT / "src" / "youtube-data.js"))
     page.add_script_tag(path=str(ROOT / "src" / "collector.js"))
     page.locator("#yt-link-copy-panel:not([hidden])").wait_for()
+
+    github_link = page.locator(".ytlc-github")
+    assert github_link.get_attribute("href") == (
+        "https://github.com/Raymond-Hear/Youtube_URLCopy"
+    )
+    assert github_link.get_attribute("target") == "_blank"
 
     assert page.locator(".ytlc-batch-size").input_value() == "25"
     assert page.locator(".ytlc-copy-format").input_value() == "title-link"

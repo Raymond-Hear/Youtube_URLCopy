@@ -7,16 +7,9 @@
 
 A local Microsoft Edge extension that places a link-copy tool in the top-right corner of YouTube, Bilibili, Douyin, and Xiaohongshu pages. It supports batch copying, pre-copy selection, title + link, TXT/CSV export, and a keyboard shortcut.
 
-## 2.0 Local Preview
+## Preview
 
-- Added Bilibili, Douyin, and Xiaohongshu support; existing YouTube features are unchanged.
-- Each of the four platforms saves its own source and batch progress independently.
-- Bilibili outputs clean `https://www.bilibili.com/video/BV...` links without tracking parameters.
-- Douyin outputs `https://www.douyin.com/video/<numeric-id>`.
-- Xiaohongshu only recognizes video notes with a play marker and won't mix in regular image-text notes.
-- Xiaohongshu keeps the page-provided `xsec_token` and source parameters, because removing them breaks some videos in practice.
-- Bilibili, Douyin, and Xiaohongshu temporarily scroll the current list to load more content while reading, then return to the original position.
-- All three platforms support batch sizes of `10 / 25 / 50`, pre-copy selection, TXT/CSV export, and the `Alt + Shift + Y` shortcut.
+![The extension running on a real Bilibili page](docs/screenshots/bilibili-extension.png)
 
 ### Supported Pages
 
@@ -114,7 +107,7 @@ For more, follow:
 - WeChat official account: 聆风Raymond (Lingfeng Raymond)
 - Xiaohongshu: [聆风的AI笔记](https://www.xiaohongshu.com/user/profile/62fc5b98000000001200d7c4) (Lingfeng's AI Notes)
 - Jike (即刻): [LingfengRaymond](https://m.okjike.com/users/322d15cf-9e61-4e85-8c50-e0bd4cd42350)
-- GitHub: [@Raymond-Hear](https://github.com/Raymond-Hear)
+- GitHub project: [Youtube_URLCopy](https://github.com/Raymond-Hear/Youtube_URLCopy)
 
 ## License
 
