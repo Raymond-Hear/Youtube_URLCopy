@@ -5,18 +5,11 @@
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-2.0.0-green.svg)
 
-一个本地运行的 Microsoft Edge 扩展。它会直接在 YouTube、B站、抖音和小红书页面右上角放置链接复制工具，支持分批复制、复制前选择、标题＋链接、TXT/CSV 导出与快捷键。工具右上角的 GitHub 图标可直接打开本项目仓库。
+一个本地运行的 Microsoft Edge 扩展。它会直接在 YouTube、B站、抖音和小红书页面右上角放置链接复制工具，支持分批复制、复制前选择、标题＋链接、TXT/CSV 导出与快捷键。
 
-## 2.0 本地预览版
+## 使用效果
 
-- 新增 B站、抖音和小红书支持，原有 YouTube 功能保持不变；
-- 四个平台分别保存来源和批次进度，互不混用；
-- B站统一输出无追踪参数的 `https://www.bilibili.com/video/BV...`；
-- 抖音统一输出 `https://www.douyin.com/video/数字ID`；
-- 小红书只识别带播放标记的视频笔记，不会把普通图文笔记混入清单；
-- 小红书会保留页面提供的 `xsec_token` 和来源参数，因为实测删除后部分视频无法打开；
-- B站、抖音和小红书会在读取时临时滚动当前列表加载更多内容，结束后自动回到原位置；
-- 三个平台都可以继续使用每批 `10 / 25 / 50`、复制前选择、TXT/CSV 导出和 `Alt + Shift + Y` 快捷键。
+![插件在 B站真实页面中的使用效果](docs/screenshots/bilibili-extension.png)
 
 ### 当前支持页面
 

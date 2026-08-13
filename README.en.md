@@ -5,18 +5,11 @@
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-2.0.0-green.svg)
 
-A local Microsoft Edge extension that places a link-copy tool in the top-right corner of YouTube, Bilibili, Douyin, and Xiaohongshu pages. It supports batch copying, pre-copy selection, title + link, TXT/CSV export, and a keyboard shortcut. The GitHub icon in the tool header opens this repository directly.
+A local Microsoft Edge extension that places a link-copy tool in the top-right corner of YouTube, Bilibili, Douyin, and Xiaohongshu pages. It supports batch copying, pre-copy selection, title + link, TXT/CSV export, and a keyboard shortcut.
 
-## 2.0 Local Preview
+## Preview
 
-- Added Bilibili, Douyin, and Xiaohongshu support; existing YouTube features are unchanged.
-- Each of the four platforms saves its own source and batch progress independently.
-- Bilibili outputs clean `https://www.bilibili.com/video/BV...` links without tracking parameters.
-- Douyin outputs `https://www.douyin.com/video/<numeric-id>`.
-- Xiaohongshu only recognizes video notes with a play marker and won't mix in regular image-text notes.
-- Xiaohongshu keeps the page-provided `xsec_token` and source parameters, because removing them breaks some videos in practice.
-- Bilibili, Douyin, and Xiaohongshu temporarily scroll the current list to load more content while reading, then return to the original position.
-- All three platforms support batch sizes of `10 / 25 / 50`, pre-copy selection, TXT/CSV export, and the `Alt + Shift + Y` shortcut.
+![The extension running on a real Bilibili page](docs/screenshots/bilibili-extension.png)
 
 ### Supported Pages
 
