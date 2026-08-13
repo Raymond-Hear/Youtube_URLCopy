@@ -5,7 +5,7 @@
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-2.0.0-green.svg)
 
-一个本地运行的 Microsoft Edge 扩展。它会直接在 YouTube、B站、抖音和小红书页面右上角放置链接复制工具，支持分批复制、复制前选择、标题＋链接、TXT/CSV 导出与快捷键。
+一个本地运行的 Microsoft Edge 扩展。它会直接在 YouTube、B站、抖音和小红书页面右上角放置链接复制工具，支持分批复制、复制前选择、标题＋链接、TXT/CSV 导出与快捷键。工具右上角的 GitHub 图标可直接打开本项目仓库。
 
 ## 2.0 本地预览版
 
@@ -114,7 +114,7 @@ npm run check
 - 公众号「聆风Raymond」
 - 小红书：[聆风的AI笔记](https://www.xiaohongshu.com/user/profile/62fc5b98000000001200d7c4)
 - 即刻：[聆风Raymond](https://m.okjike.com/users/322d15cf-9e61-4e85-8c50-e0bd4cd42350)
-- GitHub [@Raymond-Hear](https://github.com/Raymond-Hear)
+- GitHub 项目：[Youtube_URLCopy](https://github.com/Raymond-Hear/Youtube_URLCopy)
 
 ## 许可证
 

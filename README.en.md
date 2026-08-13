@@ -5,7 +5,7 @@
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-2.0.0-green.svg)
 
-A local Microsoft Edge extension that places a link-copy tool in the top-right corner of YouTube, Bilibili, Douyin, and Xiaohongshu pages. It supports batch copying, pre-copy selection, title + link, TXT/CSV export, and a keyboard shortcut.
+A local Microsoft Edge extension that places a link-copy tool in the top-right corner of YouTube, Bilibili, Douyin, and Xiaohongshu pages. It supports batch copying, pre-copy selection, title + link, TXT/CSV export, and a keyboard shortcut. The GitHub icon in the tool header opens this repository directly.
 
 ## 2.0 Local Preview
 
@@ -114,7 +114,7 @@ For more, follow:
 - WeChat official account: 聆风Raymond (Lingfeng Raymond)
 - Xiaohongshu: [聆风的AI笔记](https://www.xiaohongshu.com/user/profile/62fc5b98000000001200d7c4) (Lingfeng's AI Notes)
 - Jike (即刻): [LingfengRaymond](https://m.okjike.com/users/322d15cf-9e61-4e85-8c50-e0bd4cd42350)
-- GitHub: [@Raymond-Hear](https://github.com/Raymond-Hear)
+- GitHub project: [Youtube_URLCopy](https://github.com/Raymond-Hear/Youtube_URLCopy)
 
 ## License
 

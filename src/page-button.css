@@ -103,6 +103,33 @@
   gap: 2px;
 }
 
+#yt-link-copy-panel .ytlc-github {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--ytlc-muted);
+  text-decoration: none;
+  transition: color 120ms ease, background 120ms ease, transform 120ms ease;
+}
+
+#yt-link-copy-panel .ytlc-github svg {
+  width: 14px;
+  height: 14px;
+}
+
+#yt-link-copy-panel .ytlc-github:hover {
+  color: var(--ytlc-ink);
+  background: var(--ytlc-soft);
+  transform: translateY(-1px);
+}
+
+#yt-link-copy-panel .ytlc-github:focus-visible {
+  outline: 2px solid rgba(230, 41, 32, 0.42);
+  outline-offset: 2px;
+}
+
 #yt-link-copy-panel .ytlc-reset,
 #yt-link-copy-panel .ytlc-collapse {
   padding: 2px 4px;
